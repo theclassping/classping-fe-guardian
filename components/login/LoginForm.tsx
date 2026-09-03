@@ -122,7 +122,7 @@ export default function LoginForm() {
         <div className="demo-divider"><span>Akun demo</span></div>
         <button className="demo-account" type="button" onClick={useParentDemo}>
           <span className="demo-avatar">RR</span>
-          <span><strong>Rina Ramadhani</strong><small>Orang tua Alya · parent@classping.id</small></span>
+          <span><strong>Rina Ramadhani</strong><small>Orang tua Alya &amp; Jisindo · parent@classping.id</small></span>
           <ArrowRight aria-hidden="true" />
         </button>
         <p className="login-help">

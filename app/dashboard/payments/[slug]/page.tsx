@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, CircleDollarSign, Download, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
-import { child, invoices } from "@/lib/data";
+import { getChild, invoices } from "@/lib/data";
 
 export function generateStaticParams() {
   return invoices.map(({ slug }) => ({ slug }));
@@ -11,10 +11,11 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const invoice = invoices.find((item) => item.slug === slug);
   if (!invoice) notFound();
+  const child = getChild(invoice.childId);
   const unpaid = !invoice.status.startsWith("Lunas");
   return (
     <article className="detail-page payment-detail">
-      <Link className="back-link" href="/dashboard/payments"><ArrowLeft /> Kembali ke pembayaran</Link>
+      <Link className="back-link" href={`/dashboard/payments?child=${child.id}`}><ArrowLeft /> Kembali ke pembayaran</Link>
       <section className="invoice-card panel">
         <header><div><p className="eyebrow">TAGIHAN SPP</p><h1>{invoice.month}</h1><p>{child.name} · {child.className}</p></div><span className={`status-badge ${invoice.statusTone}`}>{invoice.status}</span></header>
         <div className="invoice-total"><small>Total tagihan</small><strong>{invoice.amount}</strong></div>

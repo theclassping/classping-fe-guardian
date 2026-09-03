@@ -14,6 +14,9 @@ This repository is intentionally separate from [`classping-fe-school`](https://g
 - Check SPP invoices, due dates, payment status, and late-payment fines.
 - View verified school contact information.
 - Configure activity, assessment, and payment notifications.
+- Switch between Alya and Jisindo from the family menu without signing in again.
+- Upload a transfer receipt and compare its entered amount with the selected bill.
+- Contact the school about profile updates, website bugs, or general feedback.
 
 ## Application routes
 
@@ -30,6 +33,7 @@ This repository is intentionally separate from [`classping-fe-school`](https://g
 | `/dashboard/payments/[slug]` | Invoice, due date, fine, and payment details |
 | `/dashboard/school` | Verified school profile and contact information |
 | `/dashboard/settings` | Guardian notification preferences |
+| `/dashboard/profile` | Guardian account and connected children |
 
 ## Technology
 
@@ -80,6 +84,7 @@ Open [http://localhost:3001](http://localhost:3001). Port `3001` is recommended 
 | --- | --- | --- |
 | `DJANGO_API_URL` | Yes | Base URL of ClassPing Backend, for example `http://127.0.0.1:8000` |
 | `NEXT_PUBLIC_SCHOOL_APP_URL` | No | URL opened by the “ClassPing School” link on the login page |
+| `DEMO_AUTH_ENABLED` | No | Set to `true` only for a prototype deployment using `parent@classping.id` / `parent123` |
 
 Do not commit `.env.local` or production secrets. The committed `.env.example` contains safe local placeholders only.
 
@@ -115,7 +120,7 @@ proxy.ts                     Route protection and login redirects
 
 ## Current data status
 
-Authentication and password recovery are wired to `classping-be`. Portal content is currently typed prototype data in `lib/data.ts`, migrated from the original static screen at `classping-frontend/classping-guardian` without deleting or modifying that source prototype.
+Authentication and password recovery are wired to `classping-be`. Portal content is currently typed prototype data in `lib/data.ts`, migrated from the original static screen at `classping-frontend/classping-guardian` without deleting or modifying that source prototype. The current fixture models one guardian with two children, including distinct activities, assessments, invoices, notification counts, and payment states.
 
 The next backend-integration step is to replace `lib/data.ts` with authenticated queries scoped by:
 
@@ -132,7 +137,18 @@ Those permissions must be enforced by the backend. Client-side filtering is a pr
 
 Guardian data is sensitive child data. Every production API query should derive the school and student scope from the authenticated relationship instead of trusting a `school_id` or `student_id` supplied by the browser. Photo delivery should use authorized endpoints or short-lived signed URLs, and activity records should appear only when the child is explicitly tagged.
 
-The interface currently demonstrates one child at TK Harapan Bangsa. Its layout and navigation are ready for tenant-provided school identity, while tenant resolution and multi-child switching remain backend integration work.
+The interface demonstrates two children at TK Harapan Bangsa and preserves the selected child in the URL. In production, the backend must return the connected-child list and validate every requested child against the authenticated guardian relationship. Tenant resolution remains backend integration work.
+
+## Deploying to Vercel
+
+1. Import `theclassping/classping-fe-guardian` in Vercel or run `vercel` from the repository root.
+2. Keep the framework preset as **Next.js** and the root directory as `.`.
+3. Configure `DJANGO_API_URL` with the public HTTPS URL of ClassPing Backend.
+4. Configure `NEXT_PUBLIC_SCHOOL_APP_URL` with the deployed ClassPing School URL.
+5. Leave `DEMO_AUTH_ENABLED=false` for a real environment. Set it to `true` only when publishing a reviewable prototype without a backend.
+6. Deploy, then verify `/login`, both child dashboards, and logout.
+
+Vercel deployments must not point `DJANGO_API_URL` to `localhost`; Vercel functions cannot reach a backend running only on a developer computer.
 
 ## Relationship to the prototype
 
