@@ -141,12 +141,21 @@ The interface demonstrates two children at TK Harapan Bangsa and preserves the s
 
 ## Deploying to Vercel
 
-1. Import `theclassping/classping-fe-guardian` in Vercel or run `vercel` from the repository root.
-2. Keep the framework preset as **Next.js** and the root directory as `.`.
-3. Configure `DJANGO_API_URL` with the public HTTPS URL of ClassPing Backend.
-4. Configure `NEXT_PUBLIC_SCHOOL_APP_URL` with the deployed ClassPing School URL.
-5. Leave `DEMO_AUTH_ENABLED=false` for a real environment. Set it to `true` only when publishing a reviewable prototype without a backend.
-6. Deploy, then verify `/login`, both child dashboards, and logout.
+ClassPing Guardian uses two long-lived deployment branches:
+
+- `dev` is the integration branch and deploys to the staging website.
+- `release` contains approved releases and deploys to production.
+
+Feature work should reach `dev` through a pull request. After it has passed staging checks, promote it with a pull request from `dev` to `release`. Do not develop directly on `release`.
+
+The source repositories for the companion services are:
+
+- [ClassPing Backend](https://github.com/theclassping/classping-backend)
+- [ClassPing School](https://github.com/theclassping/classping-fe-school)
+
+These GitHub URLs are source-code locations, not runtime URLs. `DJANGO_API_URL` and `NEXT_PUBLIC_SCHOOL_APP_URL` must point to deployed HTTPS applications.
+
+See [Deployment guide](docs/DEPLOYMENT.md) for the complete environment setup, branch promotion process, verification checklist, rollback procedure, and GitHub/Vercel configuration.
 
 Vercel deployments must not point `DJANGO_API_URL` to `localhost`; Vercel functions cannot reach a backend running only on a developer computer.
 
@@ -156,8 +165,9 @@ The static prototype remains available in `classping-frontend/classping-guardian
 
 ## Contributing
 
-1. Create a focused feature branch.
+1. Create a focused feature branch from `dev`.
 2. Keep guardian-facing copy in clear Indonesian.
 3. Preserve keyboard navigation, visible focus states, and responsive behavior.
 4. Run `npm run lint` and `npm run build` before opening a pull request.
 5. Never expose another child’s photos, assessments, or financial information in fixtures, logs, screenshots, or tests.
+6. Open the feature pull request into `dev`; promote tested work from `dev` to `release` in a separate pull request.
