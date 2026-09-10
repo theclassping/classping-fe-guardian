@@ -59,7 +59,7 @@ DEMO_AUTH_ENABLED=false
 
 Scope these values to Production. Never expose backend credentials in a `NEXT_PUBLIC_` variable. `DJANGO_API_URL` is server-only; `NEXT_PUBLIC_SCHOOL_APP_URL` is intentionally visible in the browser.
 
-The prototype login (`parent@classping.id` / `parent123`) is a local demonstration aid. Enabling `DEMO_AUTH_ENABLED` on a public deployment creates a known authentication bypass and is not permitted for staging or production.
+The prototype login (`ani.dua.anak@gmail.com` / `ani2anak`) is a local demonstration aid. Enabling `DEMO_AUTH_ENABLED` on a public deployment creates a known authentication bypass and is not permitted for staging or production.
 
 ## Development workflow
 

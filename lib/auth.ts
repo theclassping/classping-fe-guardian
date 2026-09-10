@@ -11,7 +11,7 @@ export function encodeIdentity(identity: GuardianIdentity) {
 export function decodeIdentity(value?: string): GuardianIdentity {
   const fallback: GuardianIdentity = {
     name: "Rina Ramadhani",
-    email: "parent@classping.id",
+    email: "ani.dua.anak@gmail.com",
     role: "PARENT",
   };
 

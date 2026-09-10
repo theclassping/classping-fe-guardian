@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Bookmark, ChevronLeft, ChevronRight, Download, Heart, MessageCircle, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Activity, ChildProfile } from "@/lib/data";
 
 export default function ActivityList({ items, child }: { items: readonly Activity[]; child: ChildProfile }) {
   const [query, setQuery] = useState("");
   const [slides, setSlides] = useState<Record<string, number>>({});
-  const [liked, setLiked] = useState<Record<string, boolean>>({});
   const filtered = useMemo(() => items.filter((item) => `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
 
   function downloadActivity(activity: Activity) {
@@ -41,12 +40,8 @@ export default function ActivityList({ items, child }: { items: readonly Activit
               </div>
               <div className="post-content">
                 <div className="post-action-row">
-                  <button className={liked[activity.slug] ? "liked" : ""} type="button" aria-label={`Apresiasi ${activity.title}`} aria-pressed={Boolean(liked[activity.slug])} onClick={() => setLiked((current) => ({ ...current, [activity.slug]: !current[activity.slug] }))}><Heart /></button>
-                  <button type="button" aria-label={`Komentar ${activity.title}`}><MessageCircle /></button>
                   <button type="button" aria-label={`Unduh foto ${activity.title}`} onClick={() => downloadActivity(activity)}><Download /></button>
-                  <button type="button" aria-label={`Simpan ${activity.title}`}><Bookmark /></button>
                 </div>
-                <strong className="post-likes">{activity.likes + (liked[activity.slug] ? 1 : 0)} apresiasi</strong>
                 <p><b>{activity.title}</b> {activity.description}</p>
                 <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
                 <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}?child=${child.id}`}>Baca catatan lengkap</Link>

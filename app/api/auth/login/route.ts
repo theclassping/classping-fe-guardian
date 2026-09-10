@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
 
     if (
       process.env.DEMO_AUTH_ENABLED === "true" &&
-      body.email.toLowerCase() === "parent@classping.id" &&
-      body.password === "parent123"
+      body.email.toLowerCase() === "ani.dua.anak@gmail.com" &&
+      body.password === "ani2anak"
     ) {
-      const identity: GuardianIdentity = { name: "Rina Ramadhani", email: "parent@classping.id", role: "PARENT" };
+      const identity: GuardianIdentity = { name: "Rina Ramadhani", email: "ani.dua.anak@gmail.com", role: "PARENT" };
       const response = NextResponse.json({ success: true, user: identity, demo: true });
       const secure = process.env.NODE_ENV === "production";
       const persistent = body.remember ? { maxAge: 60 * 60 * 24 * 7 } : {};
