@@ -84,7 +84,7 @@ Open [http://localhost:3001](http://localhost:3001). Port `3001` is recommended 
 | --- | --- | --- |
 | `DJANGO_API_URL` | Yes | Base URL of ClassPing Backend, for example `http://127.0.0.1:8000` |
 | `NEXT_PUBLIC_SCHOOL_APP_URL` | No | URL opened by the “ClassPing School” link on the login page |
-| `DEMO_AUTH_ENABLED` | No | Set to `true` only for a prototype deployment using `parent@classping.id` / `parent123` |
+| `DEMO_AUTH_ENABLED` | No | Set to `true` only for a prototype deployment using `ani.dua.anak@gmail.com` / `ani2anak` |
 
 Do not commit `.env.local` or production secrets. The committed `.env.example` contains safe local placeholders only.
 

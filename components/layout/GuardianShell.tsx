@@ -40,10 +40,6 @@ const notifications = {
   ],
 };
 
-function initials(name: string) {
-  return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-}
-
 export default function GuardianShell({ identity, children }: { identity: GuardianIdentity; children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -149,7 +145,7 @@ export default function GuardianShell({ identity, children }: { identity: Guardi
           <Link className="school-identity" href={withChild("/dashboard/school")}><span>TK</span><div><strong>TK Harapan Bangsa</strong><small>Tahun Ajaran 2026/2027</small></div></Link>
           <div className="topbar-actions" ref={menuArea}>
             <button className="notification-button" type="button" aria-label="Notifikasi" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }}><Bell /><i /></button>
-            <button className="profile-summary" type="button" aria-label="Buka menu keluarga Rina Ramadhani" aria-expanded={profileOpen} onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }}><span>{initials(identity.name)}</span><div><strong>{identity.name}</strong><small>{identity.role === "ADMIN" ? "Administrator · Mode Wali" : `Orang Tua ${child.firstName}`}</small></div><ChevronDown aria-hidden="true" /></button>
+            <button className="profile-summary" type="button" aria-label={`Buka menu keluarga, anak aktif ${child.name}`} aria-expanded={profileOpen} onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }}><span>{child.initials}</span><div><strong>{identity.name}</strong><small>{identity.role === "ADMIN" ? "Administrator · Mode Wali" : `Orang Tua ${child.firstName}`}</small></div><ChevronDown aria-hidden="true" /></button>
             {notificationsOpen && <div className="notification-menu" role="menu"><header><div><strong>Notifikasi {child.firstName}</strong><small>1 kabar belum dibaca</small></div><button type="button">Tandai semua dibaca</button></header>{notifications[child.id].map((item) => <Link key={item.title} href={withChild(item.href)} className={item.fresh ? "fresh" : ""}><span>{item.href.includes("payments") ? "Rp" : "✦"}</span><div><strong>{item.title}</strong><small>{item.copy}</small><time>Baru saja</time></div>{item.fresh && <i />}</Link>)}</div>}
             {profileOpen && <div className="family-menu" role="menu"><header><span>RR</span><div><strong>Rina Ramadhani</strong><small>Orang tua · 2 anak</small></div></header><p>PILIH ANAK</p>{Object.values(childProfiles).map((item) => <Link key={item.id} href={withChild(pathname, item.id)} className={item.id === child.id ? "active" : ""} onClick={() => setProfileOpen(false)}><span className={item.id}>{item.initials}</span><div><strong>{item.name}</strong><small>Kelas {item.className}</small></div>{item.id === child.id && <Check />}</Link>)}<footer><Link href={withChild("/dashboard/profile")}><UserRound /> Profil Rina</Link></footer></div>}
           </div>
