@@ -45,7 +45,7 @@ const notifications = {
 export default function GuardianShell({ identity, children }: { identity: GuardianIdentity; children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const studentId = searchParams.get("student_id");
+  const studentId = searchParams.get("student_id") || (identity.student_id ? String(identity.student_id) : null);
   const [dynamicChild, setDynamicChild] = useState<ChildProfile | null>(null);
   const child = dynamicChild || getChild(searchParams.get("child"));
   const linkedStudents = identity.students || [];

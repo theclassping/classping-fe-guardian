@@ -1,11 +1,12 @@
 import { Clock3, Mail, MapPin, Phone, ShieldCheck, UsersRound } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { schoolForBackend } from "@/lib/backend";
+import { schoolForBackend, sessionStudentId } from "@/lib/backend";
 import { getChild } from "@/lib/data";
 
 export default async function SchoolPage({ searchParams }: { searchParams: Promise<{ student_id?: string }> }) {
   const query = await searchParams;
-  const school = query.student_id ? await schoolForBackend(Number(query.student_id)) : null;
+  const studentId = await sessionStudentId(query.student_id);
+  const school = studentId ? await schoolForBackend(studentId) : null;
   const child = getChild();
   const schoolName = school?.name || child.school;
   const academicYear = school?.academic_year || child.academicYear;
