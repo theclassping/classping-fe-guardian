@@ -86,15 +86,6 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .login-error { min-height: 20px; margin: 10px 0 0; color: var(--danger); font-size: 12px; }
 .login-submit { width: 100%; }
 .login-submit svg { margin-left: auto; }
-.demo-divider { display: flex; align-items: center; gap: 12px; margin: 25px 0 14px; color: #9aa49f; font-size: 11px; }
-.demo-divider::before, .demo-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
-.demo-account { width: 100%; display: grid; grid-template-columns: 40px 1fr 18px; align-items: center; gap: 11px; padding: 11px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; transition: transform .18s, border-color .18s; }
-.demo-account:hover { transform: translateY(-1px); border-color: #acd5c6; }
-.demo-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: var(--mint); color: var(--green); font-size: 11px; font-weight: 900; }
-.demo-account strong, .demo-account small { display: block; }
-.demo-account strong { font-size: 12px; }
-.demo-account small { margin-top: 3px; color: var(--muted); font-size: 10px; }
-.demo-account > svg { width: 16px; color: #93a099; }
 .login-help { margin: 24px 0 0; text-align: center; color: var(--muted); font-size: 11px; }
 .simple-auth-page { min-height: 100svh; display: grid; place-items: center; padding: 24px; background: var(--canvas); }
 .simple-auth-card { width: min(450px, 100%); padding: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow); }
