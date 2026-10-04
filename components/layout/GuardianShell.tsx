@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Bell,
+  BookOpenCheck,
   Building2,
   Check,
   ChevronDown,
@@ -25,6 +26,7 @@ import { children as childProfiles, getChild, type ChildId, type ChildProfile } 
 type NavItem = { href: string; label: string; icon: typeof Settings; badge?: string; exact?: boolean };
 
 const supportingNavigation: NavItem[] = [
+  { href: "/dashboard/assessments", label: "Penilaian", icon: BookOpenCheck },
   { href: "/dashboard/school", label: "Profil Sekolah", icon: Building2 },
   { href: "/dashboard/settings", label: "Pengaturan", icon: Settings },
 ];

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ChildId, Invoice } from "@/lib/data";
+import type { ChildId, ChildProfile, Invoice } from "@/lib/data";
+import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
 
 function normalizeStatus(status: string) {
   return status.toLowerCase().replace(/\s+/g, "_");
 }
 
-export default function PaymentList({ items, childId, studentId }: { items: readonly Invoice[]; childId: ChildId; studentId?: string }) {
+export default function PaymentList({ items, child, childId, studentId }: { items: readonly Invoice[]; child: ChildProfile; childId: ChildId; studentId?: string }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const filtered = useMemo(() => items.filter((item) => {
@@ -23,6 +24,7 @@ export default function PaymentList({ items, childId, studentId }: { items: read
       <div className="payment-tools panel">
         <label className="list-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari kode tagihan..." /></label>
         <select aria-label="Filter status pembayaran" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Semua status</option><option value="unpaid">Unpaid</option><option value="payment_submitted">Payment Submitted</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select>
+        <PaymentReceiptDialog child={child} invoices={items} />
       </div>
       <div className="payment-list panel">
         <div className="payment-row payment-row-head"><span>Periode</span><span>Jumlah</span><span>Jatuh tempo</span><span>Status</span><span /></div>

@@ -50,12 +50,6 @@ export default function LoginForm() {
     }
   }
 
-  function useParentDemo() {
-    setEmail("ani.dua.anak@gmail.com");
-    setPassword("ani2anak");
-    setError("");
-  }
-
   return (
     <section className="login-panel">
       <div className="login-card">
@@ -123,12 +117,6 @@ export default function LoginForm() {
           </button>
         </form>
 
-        <div className="demo-divider"><span>Akun demo</span></div>
-        <button className="demo-account" type="button" onClick={useParentDemo}>
-          <span className="demo-avatar">RR</span>
-          <span><strong>Rina Ramadhani</strong><small>Orang tua Alya &amp; Jisindo · ani.dua.anak@gmail.com</small></span>
-          <ArrowRight aria-hidden="true" />
-        </button>
         <p className="login-help">
           Staf sekolah?{" "}
           <a href={process.env.NEXT_PUBLIC_SCHOOL_APP_URL || "http://localhost:3000"}>
