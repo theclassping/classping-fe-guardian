@@ -9,5 +9,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
   const identity = decodeIdentity(cookieStore.get("guardian_identity")?.value);
+  if (!identity.student_id && !identity.students?.length) {
+    redirect("/login");
+  }
   return <GuardianShell identity={identity}>{children}</GuardianShell>;
 }

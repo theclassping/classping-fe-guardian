@@ -51,7 +51,7 @@ export async function sessionStudentId(value?: string) {
   const queryId = Number(value);
   if (Number.isInteger(queryId) && queryId > 0) return queryId;
   const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
-  return identity.student_id;
+  return identity.student_id ?? identity.students?.[0]?.id;
 }
 
 async function get<T>(path: string): Promise<T | null> {
