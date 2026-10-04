@@ -2,11 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Brand from "@/components/Brand";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,14 +31,17 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
       });
-      const data = (await response.json()) as { detail?: string };
+      const data = (await response.json()) as { detail?: string; student_id?: number; user?: { student_id?: number } };
 
       if (!response.ok) {
         setError(data.detail || "Email atau kata sandi tidak sesuai.");
         return;
       }
 
-      router.replace("/dashboard");
+      const studentId = data.student_id ?? data.user?.student_id;
+      const requestedPath = searchParams.get("next");
+      const target = requestedPath?.startsWith("/") ? requestedPath : studentId ? `/activities?student_id=${studentId}` : "/activities";
+      router.replace(target);
       router.refresh();
     } catch {
       setError("Tidak dapat terhubung ke server. Silakan coba kembali.");

@@ -1,4 +1,10 @@
+export type LinkedStudent = { id: number; name: string; nickname?: string; initials: string };
+
 export type GuardianIdentity = {
+  id?: number;
+  guardian_id?: number;
+  student_id?: number;
+  students?: LinkedStudent[];
   name: string;
   email: string;
   role: "PARENT" | "ADMIN";

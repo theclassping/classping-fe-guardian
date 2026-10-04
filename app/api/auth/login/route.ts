@@ -5,12 +5,16 @@ const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
 
 type TokenPayload = { user_id?: number | string };
 type BackendUser = {
+  id?: number;
   email?: string;
   first_name?: string;
   last_name?: string;
   full_name?: string;
   role?: string;
 };
+
+type BackendGuardian = { id?: number; user_id?: number; name?: string; email?: string; student_guardians?: { student_id?: number }[] };
+type BackendStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string };
 
 function decodeAccessToken(token: string): TokenPayload {
   try {
@@ -66,6 +70,7 @@ export async function POST(request: NextRequest) {
     const tokens = (await tokenResponse.json()) as {
       access?: string;
       refresh?: string;
+      student_id?: number;
       detail?: string;
     };
 
@@ -91,10 +96,24 @@ export async function POST(request: NextRequest) {
     const user = (await userResponse.json()) as BackendUser;
 
     if (!userResponse.ok) {
-      return NextResponse.json(
-        { detail: "Profil pengguna tidak dapat dimuat." },
-        { status: 502 },
-      );
+      const guardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+        cache: "no-store",
+      });
+      const guardians = guardiansResponse.ok ? ((await guardiansResponse.json()) as BackendGuardian[]) : [];
+      const guardian = Array.isArray(guardians) ? guardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
+      if (!guardian) {
+        return NextResponse.json(
+          { detail: "Profil pengguna tidak dapat dimuat." },
+          { status: 502 },
+        );
+      }
+      Object.assign(user, {
+        id: Number(userId),
+        name: guardian.name,
+        email: guardian.email || body.email,
+        role: "PARENT",
+      });
     }
 
     if (user.role !== "PARENT" && user.role !== "ADMIN") {
@@ -104,7 +123,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const linkedGuardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
+      headers: { Authorization: `Bearer ${tokens.access}` },
+      cache: "no-store",
+    });
+    const linkedGuardians = linkedGuardiansResponse.ok ? ((await linkedGuardiansResponse.json()) as BackendGuardian[]) : [];
+    const linkedGuardian = Array.isArray(linkedGuardians) ? linkedGuardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
+    const linkedStudentId = tokens.student_id ?? linkedGuardian?.student_guardians?.find((relation) => relation.student_id)?.student_id;
+    const linkedStudentIds = (linkedGuardian?.student_guardians || []).map((relation) => relation.student_id).filter((id): id is number => typeof id === "number");
+    const studentsResponse = await fetch(`${apiBase}/api/students/`, { headers: { Authorization: `Bearer ${tokens.access}` }, cache: "no-store" });
+    const allStudents = studentsResponse.ok ? ((await studentsResponse.json()) as BackendStudent[]) : [];
+    const linkedStudents = Array.isArray(allStudents) ? allStudents.filter((student) => student.id && linkedStudentIds.includes(student.id)).map((student) => {
+      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ");
+      return { id: student.id as number, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
+    }) : [];
+
     const identity: GuardianIdentity = {
+      id: user.id ?? Number(userId),
+      guardian_id: linkedGuardian?.id,
+      student_id: linkedStudentId,
+      students: linkedStudents,
       name:
         user.full_name ||
         [user.first_name, user.last_name].filter(Boolean).join(" ") ||
@@ -112,7 +150,7 @@ export async function POST(request: NextRequest) {
       email: user.email || body.email,
       role: user.role,
     };
-    const response = NextResponse.json({ success: true, user: identity });
+    const response = NextResponse.json({ success: true, user: identity, student_id: identity.student_id, students: identity.students });
     const secure = process.env.NODE_ENV === "production";
     const persistent = body.remember ? { maxAge: 60 * 60 * 24 * 7 } : {};
 

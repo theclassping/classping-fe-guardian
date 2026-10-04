@@ -4,6 +4,7 @@ export type ChildProfile = {
   id: ChildId;
   name: string;
   firstName: string;
+  nickname?: string;
   initials: string;
   className: string;
   classCode: string;
@@ -28,6 +29,7 @@ export type Activity = {
   teacher: string;
   teacherNote: string;
   skills: string[];
+  imageUrls?: string[];
 };
 
 export type Assessment = {
@@ -55,6 +57,9 @@ export type Invoice = {
   method: string;
   paidAt: string;
   fine: string;
+  paymentSubmitted?: boolean;
+  verifiedAt?: string;
+  proofUrl?: string;
 };
 
 export const children: Record<ChildId, ChildProfile> = {

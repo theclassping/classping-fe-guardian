@@ -6,7 +6,17 @@ export function proxy(request: NextRequest) {
   const identity = request.cookies.get("guardian_identity")?.value;
 
   if (pathname === "/login" && accessToken && identity) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/activities", request.url));
+  }
+
+  if (pathname === "/activities") {
+    if (!accessToken || !identity) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+      return NextResponse.redirect(loginUrl);
+    }
+    const target = new URL(`/dashboard/activities${request.nextUrl.search}`, request.url);
+    return NextResponse.rewrite(target);
   }
 
   if (pathname.startsWith("/dashboard") && (!accessToken || !identity)) {
@@ -19,5 +29,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/dashboard/:path*"],
+  matcher: ["/login", "/activities", "/dashboard/:path*"],
 };
