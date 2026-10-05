@@ -40,7 +40,7 @@ export default function LoginForm() {
 
       const studentId = data.student_id ?? data.user?.student_id;
       const requestedPath = searchParams.get("next");
-      const target = requestedPath?.startsWith("/") ? requestedPath : studentId ? `/activities?student_id=${studentId}` : "/activities";
+      const target = requestedPath?.startsWith("/") && (studentId || !requestedPath.startsWith("/activities")) ? requestedPath : studentId ? `/activities?student_id=${studentId}` : "/dashboard/profile";
       router.replace(target);
       router.refresh();
     } catch {
