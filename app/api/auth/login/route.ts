@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     let guardianId: number | undefined;
-    let linkedStudents: NonNullable<GuardianIdentity["students"]>;
+    let linkedStudents: NonNullable<GuardianIdentity["students"]> = [];
     if (Array.isArray(user.guardian_students)) {
       linkedStudents = user.guardian_students
         .map((student) => ({ ...student, id: Number(student.student_id ?? student.id) }))
@@ -155,7 +155,12 @@ export async function POST(request: NextRequest) {
           const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || "Siswa";
           return { id: student.id, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
         });
-    } else {
+    }
+
+    // Some backend responses include guardian_students as an empty array even
+    // when the guardian-student relation exists. Treat an empty/invalid nested
+    // list as unavailable data and resolve it from the relationship endpoints.
+    if (!linkedStudents.length) {
       const authHeaders = { Authorization: `Bearer ${tokens.access}` };
       const [linkedGuardiansResponse, relationsResponse, studentsResponse] = await Promise.all([
         fetch(`${apiBase}/api/guardians/`, { headers: authHeaders, cache: "no-store" }),

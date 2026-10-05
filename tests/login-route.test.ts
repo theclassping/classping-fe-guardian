@@ -99,6 +99,51 @@ describe("login API route", () => {
     expect(response.cookies.get("access_token")?.value).toBe("access-from-login");
   });
 
+  it("falls back to guardian-student relationships when the returned nested list is empty", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    const backendFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        access: "access-from-login",
+        refresh: "refresh-from-login",
+        user: {
+          id: 10,
+          email: "parent@example.test",
+          full_name: "Parent Name",
+          role: "PARENT",
+          guardian_students: [],
+        },
+      }))
+      .mockResolvedValueOnce(Response.json([
+        { id: 3, user: 10, name: "Parent Name", email: "parent@example.test" },
+      ]))
+      .mockResolvedValueOnce(Response.json([
+        { id: 12, guardian: 3, student: 42 },
+      ]))
+      .mockResolvedValueOnce(Response.json([
+        { id: 42, first_name: "Satya", middle_name: "Putra", last_name: "Darma", nickname: "Satya" },
+      ]));
+    vi.stubGlobal("fetch", backendFetch);
+    const { POST } = await import("@/app/api/auth/login/route");
+
+    const response = await POST(loginRequest({ email: "parent@example.test", password: "password" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      student_id: 42,
+      user: {
+        guardian_id: 3,
+        students: [{ id: 42, name: "Satya Putra Darma", nickname: "Satya" }],
+      },
+    });
+    expect(backendFetch).toHaveBeenCalledTimes(4);
+    expect(backendFetch.mock.calls.slice(1).map(([url]) => url)).toEqual([
+      "https://api.example.test/api/guardians/",
+      "https://api.example.test/api/student-guardians/",
+      "https://api.example.test/api/students/",
+    ]);
+  });
+
   it("rejects a returned user with a role outside the guardian portal", async () => {
     vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
     const backendFetch = vi.fn().mockResolvedValueOnce(Response.json({

@@ -5,7 +5,7 @@ export default function LoginShowcase() {
     <section className="login-showcase" aria-label="Tentang ClassPing Guardian">
       <Brand inverse />
       <div className="login-showcase__content">
-        <span className="eyebrow-pill">PORTAL WALI · TK HARAPAN BANGSA</span>
+        <span className="eyebrow-pill">PORTAL WALI</span>
         <h1>Setiap langkah kecil, terasa lebih dekat.</h1>
         <p>
           Ikuti aktivitas, perkembangan, dan informasi sekolah anak dalam
