@@ -124,37 +124,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-<<<<<<< HEAD
-    const authHeaders = { Authorization: `Bearer ${tokens.access}` };
-    const [linkedGuardiansResponse, relationsResponse, studentsResponse] = await Promise.all([
-      fetch(`${apiBase}/api/guardians/`, { headers: authHeaders, cache: "no-store" }),
-      fetch(`${apiBase}/api/student-guardians/`, { headers: authHeaders, cache: "no-store" }),
-      fetch(`${apiBase}/api/students/`, { headers: authHeaders, cache: "no-store" }),
-    ]);
-    const linkedGuardians = linkedGuardiansResponse.ok ? records<BackendGuardian>(await linkedGuardiansResponse.json()) : [];
-    const linkedGuardian = linkedGuardians.find((item) => guardianUserId(item) === Number(userId));
-    const studentGuardianRelations = relationsResponse.ok ? records<BackendStudentGuardian>(await relationsResponse.json()) : [];
-    const relationStudentIds = linkedGuardian?.id
-      ? studentGuardianRelations
-        .filter((relation) => Number(relation.guardian) === Number(linkedGuardian.id))
-        .map((relation) => Number(relation.student))
-        .filter((id) => Number.isInteger(id) && id > 0)
-      : [];
-    const tokenStudentId = Number(tokens.student_id);
-    const linkedStudentIds = [...new Set([
-      ...(Number.isInteger(tokenStudentId) && tokenStudentId > 0 ? [tokenStudentId] : []),
-      ...relationStudentIds,
-    ])];
-    const linkedStudentId = linkedStudentIds[0];
-    if (!linkedStudentId) {
-      return NextResponse.json(
-        { detail: "Akun wali murid ini belum terhubung dengan siswa. Silakan hubungi pihak sekolah." },
-        { status: 403 },
-      );
-    }
-    const allStudents = studentsResponse.ok ? records<BackendStudent>(await studentsResponse.json()) : [];
-    const linkedStudents = allStudents.filter((student) => student.id && linkedStudentIds.includes(Number(student.id))).map((student) => {
-=======
     const linkedGuardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
       headers: { Authorization: `Bearer ${tokens.access}` },
       cache: "no-store",
@@ -170,7 +139,6 @@ export async function POST(request: NextRequest) {
       if (!b.date_of_birth) return -1;
       return new Date(a.date_of_birth).getTime() - new Date(b.date_of_birth).getTime();
     }).map((student) => {
->>>>>>> 2fbaa71 (fix logic)
       const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ");
       return { id: Number(student.id), name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
     });
@@ -184,13 +152,8 @@ export async function POST(request: NextRequest) {
 
     const identity: GuardianIdentity = {
       id: user.id ?? Number(userId),
-<<<<<<< HEAD
-      guardian_id: linkedGuardian?.id ? Number(linkedGuardian.id) : undefined,
-      student_id: linkedStudentId,
-=======
       guardian_id: linkedGuardian?.id,
       student_id: linkedStudents[0].id,
->>>>>>> 2fbaa71 (fix logic)
       students: linkedStudents,
       name:
         user.full_name ||
