@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Activity, ChildProfile } from "@/lib/data";
 
-export default function ActivityList({ items, child, studentId }: { items: readonly Activity[]; child: ChildProfile; studentId?: string }) {
+export default function ActivityList({ items, child }: { items: readonly Activity[]; child: ChildProfile }) {
   const [query, setQuery] = useState("");
   const [slides, setSlides] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
@@ -48,7 +48,7 @@ export default function ActivityList({ items, child, studentId }: { items: reado
           const currentImage = images[slide % totalImages];
           return (
             <article className="social-post panel" key={activity.slug}>
-              <header><span className="post-avatar">{activity.teacher.replace("Bu ", "B").slice(0, 2)}</span><div><strong>{activity.teacher}</strong><small>Kelas {child.className} · {activity.date}, {activity.time}</small></div><b>✓ {child.name} ditandai</b></header>
+              <header><span className="post-avatar">{activity.teacher.replace("Bu ", "B").slice(0, 2)}</span><div><strong>{activity.teacher}</strong><small>{child.className} · {activity.date}, {activity.time}</small></div><b>✓ {child.name} ditandai</b></header>
               <div className={`post-carousel ${activity.tone}`}>
                 {currentImage ? <img className="post-image" src={currentImage} alt={`${activity.title} ${slide + 1}`} /> : <span className="post-scene" aria-label={`${child.name} mengikuti ${activity.title}`}>{slide ? activity.secondaryEmoji : activity.emoji}</span>}
                 {images.length > 1 && <><button type="button" aria-label="Foto sebelumnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide - 1 + images.length) % images.length }))}><ChevronLeft /></button><button type="button" aria-label="Foto berikutnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide + 1) % images.length }))}><ChevronRight /></button><span className="post-counter">{slide + 1}/{images.length}</span><div className="post-dots">{images.map((_, index) => <i key={index} className={slide === index ? "active" : ""} />)}</div></>}
@@ -59,7 +59,7 @@ export default function ActivityList({ items, child, studentId }: { items: reado
                 </div>
                 <p><b>{activity.title}</b> {activity.description}</p>
                 <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
-                <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}?${studentId ? `student_id=${encodeURIComponent(studentId)}` : `child=${child.id}`}`}>Baca catatan lengkap</Link>
+                <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}`}>Baca catatan lengkap</Link>
               </div>
             </article>
           );

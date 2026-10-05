@@ -26,5 +26,6 @@ export async function POST(request: NextRequest) {
   response.cookies.delete("access_token");
   response.cookies.delete("refresh_token");
   response.cookies.delete("guardian_identity");
+  response.cookies.delete("current_student_id");
   return response;
 }

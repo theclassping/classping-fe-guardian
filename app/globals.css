@@ -354,6 +354,7 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .switch input:checked + span { background: var(--green); }
 .switch input:checked + span::after { transform: translateX(19px); }
 .switch input:focus-visible + span { outline: 3px solid rgba(17,128,100,.25); outline-offset: 2px; }
+:focus-visible { outline: 3px solid rgba(17,128,100,.3); outline-offset: 2px; }
 .settings-save { grid-column: 1 / -1; justify-self: end; min-width: 210px; }
 .profile-settings-form { display: grid; gap: 18px; max-width: 980px; }
 .profile-settings-form .settings-card { padding: 28px; border: 1px solid rgba(150,181,168,.38); box-shadow: 0 14px 35px rgba(42,76,61,.07); }
@@ -493,11 +494,12 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .family-menu header > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: #865136; background: #f5dacb; font-weight: 900; }
 .family-menu header strong, .family-menu header small { display: block; }.family-menu header small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .family-menu > p { margin: 12px 9px 6px; color: #98a39e; font-size: 8px; font-weight: 800; letter-spacing: 1px; }
-.family-menu > a { min-height: 62px; display: grid; grid-template-columns: 42px 1fr 18px; align-items: center; gap: 11px; padding: 8px 9px; border-radius: 11px; color: inherit; text-decoration: none; }
-.family-menu > a:hover, .family-menu > a.active { background: #eaf6f1; }
-.family-menu > a > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: var(--green); background: var(--mint); font-weight: 900; }.family-menu > a > span.jisindo { color: var(--blue); background: #e5eff9; }
-.family-menu > a strong, .family-menu > a small { display: block; }.family-menu > a strong { font-size: 11px; }.family-menu > a small { margin-top: 3px; color: var(--muted); font-size: 9px; }.family-menu > a > svg { width: 16px; color: var(--green); }
-.family-menu footer { margin-top: 7px; padding-top: 8px; border-top: 1px solid var(--line); }.family-menu footer a { min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px; color: var(--green); background: #f4f8f6; font-size: 10px; font-weight: 800; text-decoration: none; }.family-menu footer svg { width: 15px; }
+.family-menu > a, .family-menu > button { min-height: 62px; display: grid; grid-template-columns: 42px 1fr 18px; align-items: center; gap: 11px; padding: 8px 9px; border: 0; border-radius: 11px; color: inherit; background: transparent; text-align: left; text-decoration: none; }
+.family-menu > button { width: 100%; font: inherit; cursor: pointer; }.family-menu > button:disabled { opacity: .65; cursor: wait; }
+.family-menu > a:hover, .family-menu > a.active, .family-menu > button:hover:not(:disabled), .family-menu > button.active { background: #eaf6f1; }
+.family-menu > a > span, .family-menu > button > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: var(--green); background: var(--mint); font-weight: 900; }.family-menu > a > span.jisindo, .family-menu > button > span.jisindo { color: var(--blue); background: #e5eff9; }
+.family-menu > a strong, .family-menu > a small, .family-menu > button strong, .family-menu > button small { display: block; }.family-menu > a strong, .family-menu > button strong { font-size: 11px; }.family-menu > a small, .family-menu > button small { margin-top: 3px; color: var(--muted); font-size: 9px; }.family-menu > a > svg, .family-menu > button > svg { width: 16px; color: var(--green); }
+.family-menu footer { margin-top: 7px; padding-top: 8px; border-top: 1px solid var(--line); }.family-menu footer a, .family-menu footer .family-menu-logout { min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px; color: var(--green); background: #f4f8f6; font-size: 10px; font-weight: 800; text-decoration: none; }.family-menu footer .family-menu-logout { width: 100%; margin-top: 5px; padding: 0 10px; color: #b2473e; cursor: pointer; }.family-menu footer .family-menu-logout:hover { background: #fff1ef; }.family-menu footer .family-menu-logout:disabled { opacity: .65; cursor: wait; }.family-menu footer svg { width: 15px; }
 .family-menu.without-students header { border-bottom: 0; }.family-menu.without-students footer { margin-top: 0; padding-top: 0; border-top: 0; }
 .notification-menu { right: 190px; width: min(390px, calc(100vw - 30px)); padding: 0; }
 .notification-menu > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }.notification-menu header strong, .notification-menu header small { display: block; }.notification-menu header small { margin-top: 3px; color: var(--muted); font-size: 9px; }.notification-menu header button { border: 0; color: var(--green); background: transparent; font-size: 9px; font-weight: 800; cursor: pointer; }

@@ -5,15 +5,41 @@ import type { ChildProfile } from "@/lib/data";
 import type { GuardianIdentity } from "@/lib/auth";
 
 type StudentForm = { id?: number; first_name: string; middle_name: string; last_name: string; nickname: string; date_of_birth: string; gender: string; address: string };
-type StudentGuardian = { student_id: number; relationship: string; is_primary: boolean };
+type StudentGuardian = { id?: number | string; guardian_id?: number | string; guardian?: number | string | { id?: number | string }; student_id?: number | string; student?: number | string | { id?: number | string }; relationship: string; is_primary: boolean };
 type GuardianForm = { id?: number; user_id?: number; relationship: string; is_primary: boolean; student_guardians: StudentGuardian[]; name: string; email: string; phone_number: string };
+type ApiRecord = Record<string, unknown>;
+
+function records(payload: unknown): ApiRecord[] {
+  if (Array.isArray(payload)) return payload as ApiRecord[];
+  if (payload && typeof payload === "object" && "results" in payload && Array.isArray(payload.results)) return payload.results as ApiRecord[];
+  if (payload && typeof payload === "object" && "data" in payload && Array.isArray(payload.data)) return payload.data as ApiRecord[];
+  return [];
+}
+
+function relationStudentId(relation: StudentGuardian) {
+  const student = relation.student;
+  if (student && typeof student === "object") return Number(student.id);
+  return Number(relation.student_id ?? student);
+}
+
+function relationGuardianId(relation: StudentGuardian) {
+  const guardian = relation.guardian;
+  if (guardian && typeof guardian === "object") return Number(guardian.id);
+  return Number(relation.guardian_id ?? guardian);
+}
+
+function guardianUserId(guardian: ApiRecord) {
+  const user = guardian.user;
+  if (user && typeof user === "object") return Number((user as ApiRecord).id);
+  return Number(user ?? guardian.user_id);
+}
 
 function fallbackStudent(child: ChildProfile): StudentForm {
   const lastName = child.name.replace(`${child.firstName} `, "");
   return { first_name: child.firstName, middle_name: "", last_name: lastName, nickname: child.firstName, date_of_birth: "", gender: "", address: "" };
 }
 
-export default function ProfileSettings({ child, identity }: { child: ChildProfile; identity: GuardianIdentity }) {
+export default function ProfileSettings({ child, identity, studentId }: { child: ChildProfile; identity: GuardianIdentity; studentId?: number }) {
   const [student, setStudent] = useState<StudentForm>(() => fallbackStudent(child));
   const [guardians, setGuardians] = useState<GuardianForm[]>([{ relationship: "other", is_primary: false, student_guardians: [], name: identity.name, email: identity.email, phone_number: "" }]);
   const [newGuardian, setNewGuardian] = useState<GuardianForm | null>(null);
@@ -29,25 +55,52 @@ export default function ProfileSettings({ child, identity }: { child: ChildProfi
     async function load() {
       if (!identity.id) return;
       try {
-        const [guardiansResponse, studentsResponse] = await Promise.all([fetch("/api/proxy/guardians/"), fetch("/api/proxy/students/")]);
-        const apiGuardians = guardiansResponse.ok ? await guardiansResponse.json() : [];
-        const apiStudents = studentsResponse.ok ? await studentsResponse.json() : [];
+        const [guardiansResponse, relationsResponse, studentsResponse, guardianDetailResponse, studentDetailResponse] = await Promise.all([
+          fetch("/api/proxy/guardians/"),
+          fetch("/api/proxy/student-guardians/"),
+          fetch("/api/proxy/students/"),
+          identity.guardian_id ? fetch(`/api/proxy/guardians/${identity.guardian_id}/`) : Promise.resolve(null),
+          studentId ? fetch(`/api/proxy/students/${studentId}/`) : Promise.resolve(null),
+        ]);
+        const apiGuardians = guardiansResponse.ok ? records(await guardiansResponse.json()) : [];
+        const apiRelations = relationsResponse.ok ? records(await relationsResponse.json()) as StudentGuardian[] : [];
+        const apiStudents = studentsResponse.ok ? records(await studentsResponse.json()) : [];
+        if (guardianDetailResponse?.ok) {
+          const detail = await guardianDetailResponse.json();
+          if (detail && typeof detail === "object" && !apiGuardians.some((candidate) => Number(candidate.id) === identity.guardian_id)) apiGuardians.push(detail as ApiRecord);
+        }
+        let studentDetail: ApiRecord | null = null;
+        if (studentDetailResponse?.ok) {
+          const detail = await studentDetailResponse.json();
+          if (detail && typeof detail === "object" && !Array.isArray(detail)) studentDetail = detail as ApiRecord;
+        }
         if (!active) return;
-        if (Array.isArray(apiStudents)) {
-          const item = apiStudents.find((candidate) => String(candidate.first_name).toLowerCase() === child.firstName.toLowerCase());
-          if (item) {
-            setStudent({ id: item.id, first_name: item.first_name || "", middle_name: item.middle_name || "", last_name: item.last_name || "", nickname: item.nickname || "", date_of_birth: item.date_of_birth || "", gender: item.gender || "", address: item.address || "" });
-            if (Array.isArray(apiGuardians)) {
-              const linked = apiGuardians.filter((candidate) => candidate.user_id === identity.id).map((candidate) => { const relations: StudentGuardian[] = Array.isArray(candidate.student_guardians) ? candidate.student_guardians : []; const relation = relations.find((link: StudentGuardian) => link.student_id === item.id); return { id: candidate.id, user_id: candidate.user_id, relationship: relation?.relationship || "other", is_primary: Boolean(relation?.is_primary), student_guardians: relations, name: candidate.name || "", email: candidate.email || "", phone_number: candidate.phone_number || "" }; });
-              if (linked.length) setGuardians(linked);
-            }
-          }
+        const childName = child.name.trim().toLowerCase();
+        const item = apiStudents.find((candidate) => Number(candidate.id) === studentId)
+          || studentDetail
+          || apiStudents.find((candidate) => [candidate.first_name, candidate.middle_name, candidate.last_name].filter(Boolean).join(" ").trim().toLowerCase() === childName);
+        if (item) {
+          const itemId = Number(item.id);
+          setStudent({ id: itemId, first_name: String(item.first_name || ""), middle_name: String(item.middle_name || ""), last_name: String(item.last_name || ""), nickname: String(item.nickname || ""), date_of_birth: typeof item.date_of_birth === "string" ? item.date_of_birth.slice(0, 10) : "", gender: typeof item.gender === "string" ? item.gender.toLowerCase() : "", address: String(item.address || "") });
+          const matchingGuardians = apiGuardians.filter((candidate) => {
+            const isCurrentGuardian = (identity.guardian_id && Number(candidate.id) === identity.guardian_id)
+              || (identity.id && guardianUserId(candidate) === identity.id)
+              || (identity.email && String(candidate.email || "").toLowerCase() === identity.email.toLowerCase());
+            const linkedToStudent = apiRelations.some((relation) => relationStudentId(relation) === itemId && relationGuardianId(relation) === Number(candidate.id));
+            return isCurrentGuardian && linkedToStudent;
+          });
+          const linked = matchingGuardians.map((candidate) => {
+            const relations = apiRelations.filter((relation) => relationGuardianId(relation) === Number(candidate.id));
+            const relation = relations.find((link) => relationStudentId(link) === itemId);
+            return { id: Number(candidate.id) || undefined, user_id: guardianUserId(candidate) || undefined, relationship: relation?.relationship || "other", is_primary: Boolean(relation?.is_primary), student_guardians: relations, name: String(candidate.name || ""), email: String(candidate.email || ""), phone_number: String(candidate.phone_number || candidate.phone || "") };
+          });
+          if (linked.length) setGuardians(linked);
         }
       } catch { /* Keep fallback values when the API is unavailable. */ }
     }
     void load();
     return () => { active = false; };
-  }, [child.firstName, identity.id]);
+  }, [child.firstName, child.name, identity.email, identity.guardian_id, identity.id, studentId]);
 
   async function saveStudent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSavingStudent(true); setStudentError(""); setStudentMessage("");
@@ -88,7 +141,6 @@ export default function ProfileSettings({ child, identity }: { child: ChildProfi
   return <div className="profile-settings-form">
     <form className="settings-card panel" onSubmit={saveStudent}><header><div><p className="eyebrow">DATA ANAK</p><h2>Profil {child.firstName}</h2><p>Perbarui informasi siswa yang terhubung ke akun wali.</p></div></header>
       <div className="contact-grid"><label>Nama depan<input value={student.first_name} onChange={(event) => setStudent({ ...student, first_name: event.target.value })} required /></label><label>Nama tengah<input value={student.middle_name} onChange={(event) => setStudent({ ...student, middle_name: event.target.value })} /></label><label>Nama belakang<input value={student.last_name} onChange={(event) => setStudent({ ...student, last_name: event.target.value })} required /></label><label>Nama panggilan<input value={student.nickname} onChange={(event) => setStudent({ ...student, nickname: event.target.value })} /></label><label>Tanggal lahir<input type="date" value={student.date_of_birth} onChange={(event) => setStudent({ ...student, date_of_birth: event.target.value })} /></label><label>Jenis kelamin<select value={student.gender} onChange={(event) => setStudent({ ...student, gender: event.target.value })}><option value="">Pilih</option><option value="male">Laki-laki</option><option value="female">Perempuan</option></select></label></div>
-      <label>Alamat<textarea value={student.address} onChange={(event) => setStudent({ ...student, address: event.target.value })} rows={3} /></label>
       {studentError && <p className="form-message error" role="alert">{studentError}</p>}{studentMessage && <p className="form-message success" role="status">{studentMessage}</p>}
       <button className="primary-button settings-save" type="submit" disabled={savingStudent}>{savingStudent ? "Menyimpan siswa…" : "Simpan profil siswa"}</button>
     </form>

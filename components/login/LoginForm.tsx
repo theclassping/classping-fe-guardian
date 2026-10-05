@@ -31,16 +31,15 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
       });
-      const data = (await response.json()) as { detail?: string; student_id?: number; user?: { student_id?: number } };
+      const data = (await response.json()) as { detail?: string };
 
       if (!response.ok) {
         setError(data.detail || "Email atau kata sandi tidak sesuai.");
         return;
       }
 
-      const studentId = data.student_id ?? data.user?.student_id;
       const requestedPath = searchParams.get("next");
-      const target = requestedPath?.startsWith("/") ? requestedPath : studentId ? `/activities?student_id=${studentId}` : "/activities";
+      const target = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/activities";
       router.replace(target);
       router.refresh();
     } catch {
@@ -48,12 +47,6 @@ export default function LoginForm() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function useParentDemo() {
-    setEmail("ani.dua.anak@gmail.com");
-    setPassword("ani2anak");
-    setError("");
   }
 
   return (
@@ -123,12 +116,6 @@ export default function LoginForm() {
           </button>
         </form>
 
-        <div className="demo-divider"><span>Akun demo</span></div>
-        <button className="demo-account" type="button" onClick={useParentDemo}>
-          <span className="demo-avatar">RR</span>
-          <span><strong>Rina Ramadhani</strong><small>Akun wali murid demo · ani.dua.anak@gmail.com</small></span>
-          <ArrowRight aria-hidden="true" />
-        </button>
         <p className="login-help">
           Staf sekolah?{" "}
           <a href={process.env.NEXT_PUBLIC_SCHOOL_APP_URL || "http://localhost:3000"}>

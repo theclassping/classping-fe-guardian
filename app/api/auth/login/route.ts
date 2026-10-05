@@ -15,8 +15,23 @@ type BackendUser = {
   guardian_students?: (BackendStudent & { student_id?: number })[];
 };
 
-type BackendGuardian = { id?: number; user_id?: number; name?: string; email?: string; student_guardians?: { student_id?: number }[] };
-type BackendStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string };
+type BackendGuardian = { id?: number | string; user?: number | string | { id?: number | string }; user_id?: number | string; name?: string; email?: string };
+type BackendStudentGuardian = { guardian?: number | string; student?: number | string };
+type BackendStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string; date_of_birth?: string };
+
+function records<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object" && "results" in payload) {
+    const results = (payload as { results?: unknown }).results;
+    if (Array.isArray(results)) return results as T[];
+  }
+  return [];
+}
+
+function guardianUserId(guardian: BackendGuardian) {
+  if (guardian.user && typeof guardian.user === "object") return Number(guardian.user.id);
+  return Number(guardian.user ?? guardian.user_id);
+}
 
 function decodeAccessToken(token: string): TokenPayload {
   try {
@@ -107,7 +122,7 @@ export async function POST(request: NextRequest) {
         cache: "no-store",
       });
       const guardians = guardiansResponse.ok ? ((await guardiansResponse.json()) as BackendGuardian[]) : [];
-      const guardian = Array.isArray(guardians) ? guardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
+      const guardian = Array.isArray(guardians) ? guardians.find((item) => guardianUserId(item) === Number(userId)) : undefined;
       if (!guardian) {
         return NextResponse.json(
           { detail: "Profil pengguna tidak dapat dimuat." },
@@ -130,31 +145,53 @@ export async function POST(request: NextRequest) {
     }
 
     let guardianId: number | undefined;
-    let studentRecords: BackendStudent[];
+    let linkedStudents: NonNullable<GuardianIdentity["students"]>;
     if (Array.isArray(user.guardian_students)) {
-      // Each entry's id identifies the guardian relationship, not the student.
-      studentRecords = user.guardian_students
-        .filter((student) => typeof student.student_id === "number")
-        .map((student) => ({ ...student, id: student.student_id }));
+      linkedStudents = user.guardian_students
+        .map((student) => ({ ...student, id: Number(student.student_id ?? student.id) }))
+        .filter((student) => Number.isInteger(student.id) && student.id > 0)
+        .sort((a, b) => a.id - b.id)
+        .map((student) => {
+          const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || "Siswa";
+          return { id: student.id, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
+        });
     } else {
-      const linkedGuardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
-        headers: { Authorization: `Bearer ${tokens.access}` },
-        cache: "no-store",
+      const authHeaders = { Authorization: `Bearer ${tokens.access}` };
+      const [linkedGuardiansResponse, relationsResponse, studentsResponse] = await Promise.all([
+        fetch(`${apiBase}/api/guardians/`, { headers: authHeaders, cache: "no-store" }),
+        fetch(`${apiBase}/api/student-guardians/`, { headers: authHeaders, cache: "no-store" }),
+        fetch(`${apiBase}/api/students/`, { headers: authHeaders, cache: "no-store" }),
+      ]);
+      const linkedGuardians = linkedGuardiansResponse.ok ? records<BackendGuardian>(await linkedGuardiansResponse.json()) : [];
+      const linkedGuardian = linkedGuardians.find((item) => guardianUserId(item) === Number(userId));
+      guardianId = linkedGuardian?.id ? Number(linkedGuardian.id) : undefined;
+      const studentGuardianRelations = relationsResponse.ok ? records<BackendStudentGuardian>(await relationsResponse.json()) : [];
+      const relationStudentIds = linkedGuardian?.id
+        ? studentGuardianRelations
+          .filter((relation) => Number(relation.guardian) === Number(linkedGuardian.id))
+          .map((relation) => Number(relation.student))
+          .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+      const tokenStudentId = Number(tokens.student_id);
+      const linkedStudentIds = [...new Set([
+        ...(Number.isInteger(tokenStudentId) && tokenStudentId > 0 ? [tokenStudentId] : []),
+        ...relationStudentIds,
+      ])];
+      const allStudents = studentsResponse.ok ? records<BackendStudent>(await studentsResponse.json()) : [];
+      linkedStudents = allStudents.filter((student) => student.id && linkedStudentIds.includes(Number(student.id))).sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map((student) => {
+      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ");
+      return { id: Number(student.id), name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
       });
-      const linkedGuardians = linkedGuardiansResponse.ok ? ((await linkedGuardiansResponse.json()) as BackendGuardian[]) : [];
-      const linkedGuardian = Array.isArray(linkedGuardians) ? linkedGuardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
-      guardianId = linkedGuardian?.id;
-      const linkedStudentIds = (linkedGuardian?.student_guardians || []).map((relation) => relation.student_id).filter((id): id is number => typeof id === "number");
-      const studentsResponse = await fetch(`${apiBase}/api/students/`, { headers: { Authorization: `Bearer ${tokens.access}` }, cache: "no-store" });
-      const allStudents = studentsResponse.ok ? ((await studentsResponse.json()) as BackendStudent[]) : [];
-      studentRecords = Array.isArray(allStudents) ? allStudents.filter((student) => student.id && linkedStudentIds.includes(student.id)) : [];
     }
-    const linkedStudents = studentRecords.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map((student) => {
-      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || "Siswa";
-      return { id: student.id as number, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
-    });
-    const linkedStudentId = linkedStudents[0]?.id ?? tokens.student_id;
 
+    if (!linkedStudents.length) {
+      return NextResponse.json(
+        { detail: "Akun wali murid ini belum terhubung dengan siswa. Silakan hubungi pihak sekolah." },
+        { status: 403 },
+      );
+    }
+
+    const linkedStudentId = linkedStudents[0].id;
     const identity: GuardianIdentity = {
       id: user.id ?? Number(userId),
       guardian_id: guardianId,
@@ -187,6 +224,13 @@ export async function POST(request: NextRequest) {
       ...persistent,
     });
     response.cookies.set("guardian_identity", encodeIdentity(identity), {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      ...persistent,
+    });
+    response.cookies.set("current_student_id", String(linkedStudentId), {
       httpOnly: true,
       secure,
       sameSite: "lax",
