@@ -60,7 +60,7 @@ export default function GuardianShell({ identity, children }: { identity: Guardi
   const menuArea = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!studentId || !linkedStudents.some((student) => student.id === Number(studentId))) { setDynamicChild(null); return; }
+    if (!studentId) { setDynamicChild(null); return; }
     let active = true;
     fetch(`/api/proxy/students/${studentId}/`).then((response) => response.ok ? response.json() : null).then((student) => {
       if (!active || !student?.id) return;
