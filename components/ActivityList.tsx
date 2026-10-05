@@ -14,7 +14,6 @@ export default function ActivityList({ items, child, studentId }: { items: reado
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visibleItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   function updateQuery(value: string) { setQuery(value); setPage(1); }
-  const studentText = (value: string) => value.replaceAll("Alya", child.name);
 
   function downloadActivity(activity: Activity, activeImage?: string) {
     const slide = slides[activity.slug] || 0;
@@ -58,7 +57,7 @@ export default function ActivityList({ items, child, studentId }: { items: reado
                 <div className="post-action-row">
                   <button type="button" aria-label={`Unduh foto ${activity.title}`} onClick={() => downloadActivity(activity, currentImage)}><Download /></button>
                 </div>
-                <p><b>{activity.title}</b> {studentText(activity.description)}</p>
+                <p><b>{activity.title}</b> {activity.description}</p>
                 <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
                 <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}?${studentId ? `student_id=${encodeURIComponent(studentId)}` : `child=${child.id}`}`}>Baca catatan lengkap</Link>
               </div>

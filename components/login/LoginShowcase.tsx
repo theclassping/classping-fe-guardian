@@ -16,7 +16,7 @@ export default function LoginShowcase() {
           <div>
             <span>Aktivitas hari ini</span>
             <strong>Melukis dengan Jari</strong>
-            <small>Alya belajar mengenal warna baru.</small>
+            <small>Anak belajar mengenal warna baru.</small>
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ function loginRequest(body: Record<string, unknown>) {
 
 describe("login API route", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     vi.resetModules();
     vi.unstubAllEnvs();
     vi.stubEnv("DJANGO_API_URL", "");
@@ -61,4 +62,57 @@ describe("login API route", () => {
       detail: "Server autentikasi belum dikonfigurasi.",
     });
   });
+
+  it("uses the returned user and selects the smallest student ID regardless of backend order", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    const backendFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        access: "access-from-login",
+        refresh: "refresh-from-login",
+        student_id: 7,
+        user: {
+          id: 10, email: "parent@example.test", full_name: "Parent Name", role: "PARENT",
+          guardian_students: [
+            { id: 9, student_id: 7, first_name: "Dwisa", middle_name: "Ratna", last_name: "Galih", nickname: "Dwisa" },
+            { id: 8, student_id: 6, first_name: "Pratama", middle_name: "Ratna", last_name: "Galih", nickname: "Pratama" },
+          ],
+        },
+      }));
+    vi.stubGlobal("fetch", backendFetch);
+    const { POST } = await import("@/app/api/auth/login/route");
+    const response = await POST(loginRequest({ email: "parent@example.test", password: "password" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      student_id: 6,
+      user: { id: 10, name: "Parent Name", email: "parent@example.test", role: "PARENT" },
+    });
+    expect(backendFetch).toHaveBeenCalledTimes(1);
+    expect(response.cookies.get("guardian_identity")?.value).toBeDefined();
+    const identity = JSON.parse(Buffer.from(response.cookies.get("guardian_identity")!.value, "base64url").toString("utf8"));
+    expect(identity.student_id).toBe(6);
+    expect(identity.students).toEqual([
+      { id: 6, name: "Pratama Ratna Galih", nickname: "Pratama", initials: "PR" },
+      { id: 7, name: "Dwisa Ratna Galih", nickname: "Dwisa", initials: "DR" },
+    ]);
+    expect(response.cookies.get("access_token")?.value).toBe("access-from-login");
+  });
+
+  it("rejects a returned user with a role outside the guardian portal", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    const backendFetch = vi.fn().mockResolvedValueOnce(Response.json({
+      access: "access-from-login",
+      refresh: "refresh-from-login",
+      user: { id: 10, role: "TEACHER" },
+    }));
+    vi.stubGlobal("fetch", backendFetch);
+    const { POST } = await import("@/app/api/auth/login/route");
+    const response = await POST(loginRequest({ email: "teacher@example.test", password: "password" }));
+
+    expect(response.status).toBe(403);
+    expect(backendFetch).toHaveBeenCalledTimes(1);
+    expect(response.cookies.get("access_token")).toBeUndefined();
+  });
+
 });

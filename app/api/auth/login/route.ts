@@ -10,7 +10,9 @@ type BackendUser = {
   first_name?: string;
   last_name?: string;
   full_name?: string;
+  name?: string;
   role?: string;
+  guardian_students?: (BackendStudent & { student_id?: number })[];
 };
 
 type BackendGuardian = { id?: number; user_id?: number; name?: string; email?: string; student_guardians?: { student_id?: number }[] };
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
       access?: string;
       refresh?: string;
       student_id?: number;
+      user?: BackendUser;
       detail?: string;
     };
 
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { user_id: userId } = decodeAccessToken(tokens.access);
+    const userId = tokens.user?.id ?? decodeAccessToken(tokens.access).user_id;
     if (!userId) {
       return NextResponse.json(
         { detail: "Identitas pengguna tidak ditemukan pada token." },
@@ -89,13 +92,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userResponse = await fetch(`${apiBase}/api/users/${userId}/`, {
-      headers: { Authorization: `Bearer ${tokens.access}` },
-      cache: "no-store",
-    });
-    const user = (await userResponse.json()) as BackendUser;
+    let user = tokens.user;
+    if (!user) {
+      const userResponse = await fetch(`${apiBase}/api/users/${userId}/`, {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+        cache: "no-store",
+      });
+      if (userResponse.ok) user = (await userResponse.json()) as BackendUser;
+    }
 
-    if (!userResponse.ok) {
+    if (!user) {
       const guardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
         headers: { Authorization: `Bearer ${tokens.access}` },
         cache: "no-store",
@@ -108,12 +114,12 @@ export async function POST(request: NextRequest) {
           { status: 502 },
         );
       }
-      Object.assign(user, {
+      user = {
         id: Number(userId),
         name: guardian.name,
         email: guardian.email || body.email,
         role: "PARENT",
-      });
+      };
     }
 
     if (user.role !== "PARENT" && user.role !== "ADMIN") {
@@ -123,28 +129,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const linkedGuardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
-      headers: { Authorization: `Bearer ${tokens.access}` },
-      cache: "no-store",
-    });
-    const linkedGuardians = linkedGuardiansResponse.ok ? ((await linkedGuardiansResponse.json()) as BackendGuardian[]) : [];
-    const linkedGuardian = Array.isArray(linkedGuardians) ? linkedGuardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
-    const linkedStudentId = tokens.student_id ?? linkedGuardian?.student_guardians?.find((relation) => relation.student_id)?.student_id;
-    const linkedStudentIds = (linkedGuardian?.student_guardians || []).map((relation) => relation.student_id).filter((id): id is number => typeof id === "number");
-    const studentsResponse = await fetch(`${apiBase}/api/students/`, { headers: { Authorization: `Bearer ${tokens.access}` }, cache: "no-store" });
-    const allStudents = studentsResponse.ok ? ((await studentsResponse.json()) as BackendStudent[]) : [];
-    const linkedStudents = Array.isArray(allStudents) ? allStudents.filter((student) => student.id && linkedStudentIds.includes(student.id)).map((student) => {
-      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ");
+    let guardianId: number | undefined;
+    let studentRecords: BackendStudent[];
+    if (Array.isArray(user.guardian_students)) {
+      // Each entry's id identifies the guardian relationship, not the student.
+      studentRecords = user.guardian_students
+        .filter((student) => typeof student.student_id === "number")
+        .map((student) => ({ ...student, id: student.student_id }));
+    } else {
+      const linkedGuardiansResponse = await fetch(`${apiBase}/api/guardians/`, {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+        cache: "no-store",
+      });
+      const linkedGuardians = linkedGuardiansResponse.ok ? ((await linkedGuardiansResponse.json()) as BackendGuardian[]) : [];
+      const linkedGuardian = Array.isArray(linkedGuardians) ? linkedGuardians.find((item) => Number(item.user_id) === Number(userId)) : undefined;
+      guardianId = linkedGuardian?.id;
+      const linkedStudentIds = (linkedGuardian?.student_guardians || []).map((relation) => relation.student_id).filter((id): id is number => typeof id === "number");
+      const studentsResponse = await fetch(`${apiBase}/api/students/`, { headers: { Authorization: `Bearer ${tokens.access}` }, cache: "no-store" });
+      const allStudents = studentsResponse.ok ? ((await studentsResponse.json()) as BackendStudent[]) : [];
+      studentRecords = Array.isArray(allStudents) ? allStudents.filter((student) => student.id && linkedStudentIds.includes(student.id)) : [];
+    }
+    const linkedStudents = studentRecords.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).map((student) => {
+      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || "Siswa";
       return { id: student.id as number, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
-    }) : [];
+    });
+    const linkedStudentId = linkedStudents[0]?.id ?? tokens.student_id;
 
     const identity: GuardianIdentity = {
       id: user.id ?? Number(userId),
-      guardian_id: linkedGuardian?.id,
+      guardian_id: guardianId,
       student_id: linkedStudentId,
       students: linkedStudents,
       name:
         user.full_name ||
+        user.name ||
         [user.first_name, user.last_name].filter(Boolean).join(" ") ||
         "Pengguna ClassPing",
       email: user.email || body.email,

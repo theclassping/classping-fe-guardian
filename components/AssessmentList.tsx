@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Assessment, ChildId } from "@/lib/data";
 
-export default function AssessmentList({ items, childId }: { items: readonly Assessment[]; childId: ChildId }) {
+export default function AssessmentList({ items, childId, studentId }: { items: readonly Assessment[]; childId: ChildId; studentId?: string }) {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => items.filter((item) => `${item.title} ${item.period}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
   return (
@@ -13,7 +13,7 @@ export default function AssessmentList({ items, childId }: { items: readonly Ass
       <label className="list-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari laporan penilaian..." /></label>
       <div className="assessment-list">
         {filtered.map((assessment) => (
-          <Link className="assessment-list-card panel" href={`/dashboard/assessments/${assessment.slug}?child=${childId}`} key={assessment.slug}>
+          <Link className="assessment-list-card panel" href={`/dashboard/assessments/${assessment.slug}?${studentId ? `student_id=${encodeURIComponent(studentId)}` : `child=${childId}`}`} key={assessment.slug}>
             <span className="report-icon"><CheckCircle2 /></span>
             <div><span className="ready-chip">{assessment.status}</span><h2>{assessment.title}</h2><small>{assessment.period} · oleh {assessment.teacher}</small><p>{assessment.summary}</p></div>
             <ArrowRight />

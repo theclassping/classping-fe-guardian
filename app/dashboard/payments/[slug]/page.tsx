@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, Download, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getChild, invoices } from "@/lib/data";
-import { invoiceForBackend, studentForBackend } from "@/lib/backend";
+import { invoices } from "@/lib/data";
+import { invoiceForBackend, selectedStudentForRequest } from "@/lib/backend";
 import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
 
 export function generateStaticParams() {
@@ -12,15 +12,14 @@ export function generateStaticParams() {
 export default async function PaymentDetail({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ child?: string; student_id?: string }> }) {
   const { slug } = await params;
   const query = await searchParams;
-  const fallbackChild = getChild(query.child);
+  const { child, studentId } = await selectedStudentForRequest(query);
   const fallbackInvoice = invoices.find((item) => item.slug === slug);
-  const invoice = await invoiceForBackend(slug, fallbackChild.id, fallbackInvoice);
+  const invoice = await invoiceForBackend(slug, child.id, fallbackInvoice);
   if (!invoice) notFound();
-  const child = query.student_id ? await studentForBackend(Number(query.student_id), fallbackChild) : fallbackChild;
   const unpaid = !invoice.status.startsWith("Lunas") && !invoice.paymentSubmitted;
   return (
     <article className="detail-page payment-detail">
-      <Link className="back-link" href={query.student_id ? `/dashboard/payments?student_id=${encodeURIComponent(query.student_id)}` : `/dashboard/payments?child=${child.id}`}><ArrowLeft /> Kembali ke pembayaran</Link>
+      <Link className="back-link" href={studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`}><ArrowLeft /> Kembali ke pembayaran</Link>
       <section className="invoice-card panel">
         <header><div><p className="eyebrow">TAGIHAN SPP</p><h1>{invoice.month}</h1><p>{child.name} · {child.className}</p></div><span className={`status-badge ${invoice.statusTone}`}>{invoice.status}</span></header>
         <div className="invoice-total"><small>Total tagihan</small><strong>{invoice.amount}</strong></div>

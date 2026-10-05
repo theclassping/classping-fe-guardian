@@ -11,7 +11,7 @@ const initial = {
   email: false,
 };
 
-export default function NotificationSettings() {
+export default function NotificationSettings({ studentName = "anak Anda" }: { studentName?: string }) {
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(false);
 
@@ -23,7 +23,7 @@ export default function NotificationSettings() {
   return (
     <div className="settings-grid">
       <section className="settings-card panel">
-        <header><BellRing /><div><h2>Jenis notifikasi</h2><p>Pilih informasi tentang Alya yang ingin Anda terima.</p></div></header>
+        <header><BellRing /><div><h2>Jenis notifikasi</h2><p>Pilih informasi tentang {studentName} yang ingin Anda terima.</p></div></header>
         <SettingRow title="Aktivitas baru" description="Saat guru membagikan foto atau catatan kegiatan." checked={settings.activity} onChange={() => toggle("activity")} />
         <SettingRow title="Penilaian dipublikasi" description="Saat laporan perkembangan baru tersedia." checked={settings.assessment} onChange={() => toggle("assessment")} />
         <SettingRow title="SPP & jatuh tempo" description="Pengingat tagihan, status pembayaran, dan denda." checked={settings.payment} onChange={() => toggle("payment")} />

@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { decodeIdentity } from "@/lib/auth";
+import { getChild } from "@/lib/data";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
 
 type ApiActivity = {
@@ -64,11 +66,30 @@ async function get<T>(path: string): Promise<T | null> {
 }
 
 export async function studentForBackend(studentId: number, fallback: import("@/lib/data").ChildProfile) {
+  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
+  const linkedStudent = identity.students?.find((student) => student.id === studentId);
+  const fallbackName = linkedStudent?.name || "Siswa";
+  fallback = {
+    ...fallback,
+    name: fallbackName,
+    firstName: fallbackName.split(" ")[0],
+    nickname: linkedStudent?.nickname || fallbackName.split(" ")[0],
+    initials: linkedStudent?.initials || "S",
+  };
   const item = await get<ApiStudent>(`/api/students/${studentId}/`);
   if (!item?.id) return fallback;
   const name = [item.first_name, item.middle_name, item.last_name].filter(Boolean).join(" ") || fallback.name;
   const currentClass = item.class_students?.find((entry) => entry.is_current) || item.class_students?.[0];
-  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, className: currentClass?.class_name || fallback.className, classCode: currentClass?.class_name || fallback.classCode, id: fallback.id };
+  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), className: currentClass?.class_name || fallback.className, classCode: currentClass?.class_name || fallback.classCode, id: fallback.id };
+}
+
+export async function selectedStudentForRequest(query: { child?: string; student_id?: string }) {
+  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
+  const defaultStudentId = identity.student_id ?? identity.students?.reduce<number | undefined>((smallest, student) => smallest === undefined ? student.id : Math.min(smallest, student.id), undefined);
+  const studentId = query.student_id || (defaultStudentId ? String(defaultStudentId) : undefined);
+  const fallback = getChild(query.child);
+  const child = studentId ? await studentForBackend(Number(studentId), fallback) : fallback;
+  return { child, studentId };
 }
 
 export async function studentsForGuardian(guardianId: number) {
@@ -125,8 +146,11 @@ function humanizePaymentDate(value?: string) {
   }).format(new Date(value));
 }
 
-export async function activitiesForBackend(childId: ChildId, fallback: Activity[], _studentId?: number) {
-  const payload = await get<ApiActivity[] | { results?: ApiActivity[] }>("/api/activities/");
+export async function activitiesForBackend(childId: ChildId, fallback: Activity[], studentId?: number) {
+  const filters = new URLSearchParams();
+  if (studentId !== undefined) filters.set("student_id", String(studentId));
+  filters.set("is_publish", "true");
+  const payload = await get<ApiActivity[] | { results?: ApiActivity[] }>(`/api/activities/?${filters.toString()}`);
   const records = Array.isArray(payload) ? payload : payload?.results || null;
   if (!records) return fallback;
   const mapped = records

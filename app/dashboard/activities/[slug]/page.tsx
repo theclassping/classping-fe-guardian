@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, LockKeyhole, Sparkles } from "lucide-react";
-import { notFound } from "next/navigation";
-import { activities, getChild } from "@/lib/data";
-import { activityForBackend, studentForBackend } from "@/lib/backend";
+import { activities } from "@/lib/data";
+import { activityForBackend, selectedStudentForRequest } from "@/lib/backend";
 import ActivityMediaSlider from "@/components/ActivityMediaSlider";
 
 export function generateStaticParams() {
@@ -14,18 +13,17 @@ export default async function ActivityDetail({ params, searchParams }: { params:
   const query = await searchParams;
   const fallback = activities.find((item) => item.slug === slug) || activities[0];
   const activity = await activityForBackend(slug, fallback.childId, fallback);
-  const childFallback = getChild(query.child);
-  const child = query.student_id ? await studentForBackend(Number(query.student_id), childFallback) : childFallback;
+  const { child, studentId } = await selectedStudentForRequest(query);
 
   return (
     <article className="detail-page">
-      <Link className="back-link" href={query.student_id ? `/dashboard/activities?student_id=${query.student_id}` : `/dashboard/activities?child=${child.id}`}><ArrowLeft /> Kembali ke aktivitas</Link>
+      <Link className="back-link" href={studentId ? `/dashboard/activities?student_id=${studentId}` : `/dashboard/activities?child=${child.id}`}><ArrowLeft /> Kembali ke aktivitas</Link>
       <section className="detail-hero panel">
         <div className={`detail-art ${activity.tone}`}><ActivityMediaSlider images={activity.imageUrls} emoji={activity.emoji} title={activity.title} /></div>
         <div className="detail-hero-copy">
           <span className="activity-date"><CalendarDays /> {activity.date} · {activity.time}</span>
           <h1>{activity.title}</h1>
-          <p>{activity.description.replaceAll("Alya", child.name)}</p>
+          <p>{activity.description}</p>
           <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
         </div>
       </section>

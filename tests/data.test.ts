@@ -5,12 +5,14 @@ import {
   children,
   getChild,
   invoicesFor,
+  unselectedChild,
 } from "@/lib/data";
 
 describe("child data selectors", () => {
-  it("defaults an unknown child to Alya", () => {
-    expect(getChild()).toEqual(children.alya);
-    expect(getChild("unknown")).toEqual(children.alya);
+  it("uses a neutral profile when no child is selected", () => {
+    expect(getChild()).toEqual(unselectedChild);
+    expect(getChild("unknown")).toEqual(unselectedChild);
+    expect(getChild().name).toBe("Siswa");
   });
 
   it("selects Jisindo only for the jisindo id", () => {
