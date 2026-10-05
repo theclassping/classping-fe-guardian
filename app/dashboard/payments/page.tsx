@@ -11,7 +11,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="content-page">
       <PageHeader eyebrow="ADMINISTRASI SEKOLAH" title="SPP & Tagihan" description={`Pantau tagihan, denda, dan riwayat pembayaran ${child.nickname || child.firstName}.`} />
-      <PaymentList items={invoices} child={child} childId={child.id} studentId={query.student_id} />
+      <PaymentList items={invoices} childId={child.id} studentId={query.student_id} />
     </div>
   );
 }
