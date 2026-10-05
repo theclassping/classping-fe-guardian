@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { activitiesFor, assessmentsFor, getChild, invoicesFor } from "@/lib/data";
-import { activitiesForBackend, invoicesForBackend, sessionStudentId, studentForBackend } from "@/lib/backend";
+import { activitiesForBackend, invoicesForBackend, studentForBackend } from "@/lib/backend";
 
 function currentDate() {
   return new Intl.DateTimeFormat("id-ID", {
@@ -27,13 +27,12 @@ function currentDate() {
 export default async function GuardianDashboard({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
   const query = await searchParams;
   const fallback = getChild(query.child);
-  const studentId = await sessionStudentId(query.student_id);
-  const child = studentId ? await studentForBackend(studentId, fallback) : fallback;
-  const activities = await activitiesForBackend(child.id, activitiesFor(child.id), studentId);
+  const child = query.student_id ? await studentForBackend(Number(query.student_id), fallback) : fallback;
+  const activities = await activitiesForBackend(child.id, activitiesFor(child.id));
   const assessments = assessmentsFor(child.id);
-  const invoices = await invoicesForBackend(child.id, invoicesFor(child.id), studentId);
+  const invoices = await invoicesForBackend(child.id, invoicesFor(child.id));
   const nextInvoice = invoices[0];
-  const childQuery = studentId ? `?student_id=${studentId}` : `?child=${child.id}`;
+  const childQuery = query.student_id ? `?student_id=${query.student_id}` : `?child=${child.id}`;
   const isJisindo = child.id === "jisindo";
 
   return (

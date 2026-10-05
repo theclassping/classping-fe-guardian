@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { decodeIdentity } from "@/lib/auth";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
 
 type ApiActivity = {
@@ -46,13 +45,6 @@ type ApiStudent = { id?: number; first_name?: string; middle_name?: string; last
 type ApiSchool = { id?: number; name?: string; npsn?: string; address?: string; phone_number?: string; email?: string; description?: string; school_hours?: string; academic_year?: string };
 
 const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
-
-export async function sessionStudentId(value?: string) {
-  const queryId = Number(value);
-  if (Number.isInteger(queryId) && queryId > 0) return queryId;
-  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
-  return identity.student_id;
-}
 
 async function get<T>(path: string): Promise<T | null> {
   if (!apiBase) return null;
