@@ -8,11 +8,11 @@ export function generateStaticParams() {
   return assessments.map(({ slug }) => ({ slug }));
 }
 
-export default async function AssessmentDetail({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ child?: string; student_id?: string }> }) {
+export default async function AssessmentDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const assessment = assessments.find((item) => item.slug === slug);
   if (!assessment) notFound();
-  const { child, studentId } = await selectedStudentForRequest({ child: assessment.childId, ...await searchParams });
+  const { child, studentId } = await selectedStudentForRequest();
   return (
     <article className="detail-page assessment-detail">
       <Link className="back-link" href={`/dashboard/assessments?${studentId ? `student_id=${encodeURIComponent(studentId)}` : `child=${child.id}`}`}><ArrowLeft /> Kembali ke penilaian</Link>

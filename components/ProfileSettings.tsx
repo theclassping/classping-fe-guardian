@@ -104,7 +104,7 @@ export default function ProfileSettings({ child, identity, studentId }: { child:
 
   async function saveStudent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSavingStudent(true); setStudentError(""); setStudentMessage("");
-    if (!student.id) { setStudentError("Profil demo belum memiliki ID backend siswa."); setSavingStudent(false); return; }
+    if (!student.id) { setStudentError("Data siswa belum tersedia dari server."); setSavingStudent(false); return; }
     try {
       const response = await fetch(`/api/proxy/students/${student.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ first_name: student.first_name, middle_name: student.middle_name || null, last_name: student.last_name, nickname: student.nickname || null, date_of_birth: student.date_of_birth, gender: student.gender, address: student.address }) });
       if (!response.ok) throw new Error("Detail siswa tidak dapat disimpan.");

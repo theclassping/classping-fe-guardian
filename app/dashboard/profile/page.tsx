@@ -3,10 +3,12 @@ import { ArrowRight, Mail, Phone, UserRound } from "lucide-react";
 import { cookies } from "next/headers";
 import { decodeIdentity } from "@/lib/auth";
 import { guardianForBackend, studentsForGuardian } from "@/lib/backend";
+import { redirect } from "next/navigation";
 
 export default async function GuardianProfilePage({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
   const query = await searchParams;
   const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
+  if (!identity) redirect("/login");
   const [students, guardian] = await Promise.all([
     identity.guardian_id ? studentsForGuardian(identity.guardian_id) : Promise.resolve(identity.students || []),
     guardianForBackend(identity.guardian_id, identity.id, identity.email),

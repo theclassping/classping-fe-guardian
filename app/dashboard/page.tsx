@@ -24,9 +24,8 @@ function currentDate() {
   }).format(new Date());
 }
 
-export default async function GuardianDashboard({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
-  const query = await searchParams;
-  const { child, studentId } = await selectedStudentForRequest(query);
+export default async function GuardianDashboard() {
+  const { child, studentId } = await selectedStudentForRequest();
   const activities = await activitiesForBackend(child.id, activitiesFor(child.id), studentId ? Number(studentId) : undefined);
   const assessments = assessmentsFor(child.id);
   const invoices = await invoicesForBackend(child.id, invoicesFor(child.id));

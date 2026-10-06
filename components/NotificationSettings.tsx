@@ -30,8 +30,8 @@ export default function NotificationSettings({ studentName = "anak Anda" }: { st
       </section>
       <section className="settings-card panel">
         <header><Smartphone /><div><h2>Saluran pengiriman</h2><p>Atur cara ClassPing mengirimkan pengingat.</p></div></header>
-        <SettingRow icon={<MessageCircleMore />} title="WhatsApp" description="+62 812-3456-7890" checked={settings.whatsapp} onChange={() => toggle("whatsapp")} />
-        <SettingRow icon={<Mail />} title="Email" description="ani.dua.anak@gmail.com" checked={settings.email} onChange={() => toggle("email")} />
+        <SettingRow icon={<MessageCircleMore />} title="WhatsApp" description="Nomor wali murid yang terdaftar." checked={settings.whatsapp} onChange={() => toggle("whatsapp")} />
+        <SettingRow icon={<Mail />} title="Email" description="Alamat email akun wali murid yang terdaftar." checked={settings.email} onChange={() => toggle("email")} />
       </section>
       <button className="primary-button settings-save" type="button" onClick={() => setSaved(true)}>{saved ? <><Check /> Pengaturan tersimpan</> : "Simpan pengaturan"}</button>
     </div>

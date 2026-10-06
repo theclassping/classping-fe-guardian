@@ -14,14 +14,8 @@ export function encodeIdentity(identity: GuardianIdentity) {
   return Buffer.from(JSON.stringify(identity), "utf8").toString("base64url");
 }
 
-export function decodeIdentity(value?: string): GuardianIdentity {
-  const fallback: GuardianIdentity = {
-    name: "Rina Ramadhani",
-    email: "ani.dua.anak@gmail.com",
-    role: "PARENT",
-  };
-
-  if (!value) return fallback;
+export function decodeIdentity(value?: string): GuardianIdentity | null {
+  if (!value) return null;
 
   try {
     const parsed = JSON.parse(
@@ -36,8 +30,8 @@ export function decodeIdentity(value?: string): GuardianIdentity {
       return parsed as GuardianIdentity;
     }
   } catch {
-    return fallback;
+    return null;
   }
 
-  return fallback;
+  return null;
 }

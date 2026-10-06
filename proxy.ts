@@ -22,9 +22,7 @@ function hasLinkedStudent(identityCookie?: string) {
 
 function hasValidSession(accessToken?: string, identityCookie?: string) {
   return Boolean(
-    accessToken &&
-      !accessToken.startsWith("classping-guardian-demo") &&
-      hasLinkedStudent(identityCookie),
+      accessToken && hasLinkedStudent(identityCookie),
   );
 }
 

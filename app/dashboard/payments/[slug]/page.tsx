@@ -9,10 +9,9 @@ export function generateStaticParams() {
   return invoices.map(({ slug }) => ({ slug }));
 }
 
-export default async function PaymentDetail({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ child?: string; student_id?: string }> }) {
+export default async function PaymentDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const query = await searchParams;
-  const { child, studentId } = await selectedStudentForRequest(query);
+  const { child, studentId } = await selectedStudentForRequest();
   const fallbackInvoice = invoices.find((item) => item.slug === slug);
   const invoice = await invoiceForBackend(slug, child.id, fallbackInvoice);
   if (!invoice) notFound();

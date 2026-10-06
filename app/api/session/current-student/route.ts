@@ -4,6 +4,9 @@ import { decodeIdentity } from "@/lib/auth";
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   const identity = decodeIdentity(request.cookies.get("guardian_identity")?.value);
+  if (!identity) {
+    return NextResponse.json({ detail: "Sesi tidak valid. Silakan masuk kembali." }, { status: 403 });
+  }
   const body = (await request.json().catch(() => ({}))) as { student_id?: number | string };
   const studentId = Number(body.student_id);
   const linkedIds = new Set([
@@ -13,7 +16,6 @@ export async function POST(request: NextRequest) {
 
   if (
     !accessToken ||
-    accessToken.startsWith("classping-guardian-demo") ||
     !Number.isInteger(studentId) ||
     !linkedIds.has(studentId)
   ) {

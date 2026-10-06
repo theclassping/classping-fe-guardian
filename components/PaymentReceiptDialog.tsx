@@ -31,7 +31,7 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
     const receiptAmount = remainingBefore;
     if (!selected || receiptAmount <= 0) return setError("Tidak ada tagihan yang dapat dibayar.");
     const invoiceId = Number(selected.slug);
-    if (!Number.isInteger(invoiceId)) return setError("Tagihan demo belum memiliki ID backend untuk dikirim.");
+    if (!Number.isInteger(invoiceId)) return setError("Tagihan ini belum tersedia untuk pembayaran online.");
 
     setSubmitting(true);
     try {

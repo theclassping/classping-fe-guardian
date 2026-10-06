@@ -3,9 +3,8 @@ import PaymentList from "@/components/PaymentList";
 import { invoicesFor } from "@/lib/data";
 import { invoicesForBackend, selectedStudentForRequest } from "@/lib/backend";
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
-  const query = await searchParams;
-  const { child, studentId } = await selectedStudentForRequest(query);
+export default async function PaymentsPage() {
+  const { child, studentId } = await selectedStudentForRequest();
   const invoices = await invoicesForBackend(child.id, invoicesFor(child.id), studentId ? Number(studentId) : undefined);
   return (
     <div className="content-page">

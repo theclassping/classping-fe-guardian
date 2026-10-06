@@ -31,13 +31,13 @@ describe("ClassPing Guardian feature smoke coverage", () => {
     expect(proxySource).toContain('pathname.startsWith("/dashboard")');
     expect(proxySource).toContain('request.cookies.get("access_token")');
     expect(proxySource).toContain('request.cookies.get("guardian_identity")');
-    expect(proxySource).toContain('loginUrl.searchParams.set("next", pathname)');
+    expect(proxySource).toContain('loginUrl.searchParams.set("next", next)');
   });
 
   it("contains the complete guardian navigation surface", () => {
     const shell = read("components/layout/GuardianShell.tsx");
 
-    for (const label of ["Aktivitas", "Penilaian", "SPP & Tagihan", "Pengaturan"]) {
+    for (const label of ["Aktivitas", "SPP & Tagihan", "Profil Sekolah", "Pengaturan"]) {
       expect(shell).toContain(label);
     }
     expect(shell).toContain("PILIH ANAK");
@@ -49,7 +49,7 @@ describe("ClassPing Guardian feature smoke coverage", () => {
     expect(read("components/ActivityList.tsx")).toContain("setQuery");
     expect(read("components/ActivityList.tsx")).toContain("downloadActivity");
     expect(read("components/AssessmentList.tsx")).toContain("setQuery");
-    expect(read("components/PaymentList.tsx")).toContain("PaymentReceiptDialog");
+    expect(read("app/dashboard/payments/[slug]/page.tsx")).toContain("PaymentReceiptDialog");
     expect(read("components/NotificationSettings.tsx")).toContain("setSettings");
   });
 

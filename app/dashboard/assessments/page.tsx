@@ -3,9 +3,8 @@ import AssessmentList from "@/components/AssessmentList";
 import PageHeader from "@/components/PageHeader";
 import { assessmentsFor } from "@/lib/data";
 
-export default async function AssessmentsPage({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
-  const query = await searchParams;
-  const { child, studentId } = await selectedStudentForRequest(query);
+export default async function AssessmentsPage() {
+  const { child, studentId } = await selectedStudentForRequest();
   const assessments = assessmentsFor(child.id);
   return (
     <div className="content-page">

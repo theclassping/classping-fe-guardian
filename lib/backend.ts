@@ -163,9 +163,10 @@ async function teacherForActivity(activity: ApiActivity, cache: Map<string, Prom
   return nameFromTeacher(assignment || undefined) || "Nama guru belum tersedia";
 }
 
-export async function sessionStudentId(_legacyQueryValue?: string) {
+export async function sessionStudentId() {
   const cookieStore = await cookies();
   const identity = decodeIdentity(cookieStore.get("guardian_identity")?.value);
+  if (!identity) return undefined;
   const linkedIds = new Set([
     ...(identity.student_id ? [identity.student_id] : []),
     ...(identity.students || []).map((student) => student.id),
@@ -177,7 +178,7 @@ export async function sessionStudentId(_legacyQueryValue?: string) {
 async function get<T>(path: string): Promise<T | null> {
   if (!apiBase) return null;
   const accessToken = (await cookies()).get("access_token")?.value;
-  if (!accessToken || accessToken.startsWith("classping-guardian-demo")) return null;
+  if (!accessToken) return null;
 
   try {
     const response = await fetch(`${apiBase}${path}`, {
@@ -193,7 +194,7 @@ async function get<T>(path: string): Promise<T | null> {
 
 export async function studentForBackend(studentId: number, fallback: import("@/lib/data").ChildProfile) {
   const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
-  const linkedStudent = identity.students?.find((student) => student.id === studentId);
+  const linkedStudent = identity?.students?.find((student) => student.id === studentId);
   const fallbackName = linkedStudent?.name || "Siswa";
   fallback = {
     ...fallback,
@@ -223,7 +224,7 @@ export async function studentForBackend(studentId: number, fallback: import("@/l
   return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), className, classCode: className, id: fallback.id };
 }
 
-export async function selectedStudentForRequest(_query: { child?: string; student_id?: string }) {
+export async function selectedStudentForRequest() {
   const fallback = getChild();
   const currentStudentId = await sessionStudentId();
   const child = currentStudentId ? await studentForBackend(currentStudentId, fallback) : fallback;

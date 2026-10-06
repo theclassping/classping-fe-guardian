@@ -8,7 +8,7 @@ import { getChild } from "@/lib/data";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const identity = decodeIdentity(cookieStore.get("guardian_identity")?.value);
-  if (!identity.student_id && !identity.students?.length) {
+  if (!identity || (!identity.student_id && !identity.students?.length)) {
     redirect("/login");
   }
   const currentStudentId = await sessionStudentId();

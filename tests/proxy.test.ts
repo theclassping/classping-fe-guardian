@@ -10,6 +10,14 @@ function request(path: string, cookies: Record<string, string> = {}) {
   return result;
 }
 
+const linkedGuardianIdentity = Buffer.from(JSON.stringify({
+  name: "Guardian Example",
+  email: "guardian@example.test",
+  role: "PARENT",
+  student_id: 42,
+  students: [{ id: 42 }],
+}), "utf8").toString("base64url");
+
 describe("route protection proxy", () => {
   it("redirects unauthenticated dashboard requests to login", () => {
     const response = proxy(request("/dashboard"));
@@ -32,19 +40,19 @@ describe("route protection proxy", () => {
     const response = proxy(
       request("/login", {
         access_token: "token",
-        guardian_identity: "identity",
+        guardian_identity: linkedGuardianIdentity,
       }),
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/dashboard");
+    expect(response.headers.get("location")).toBe("http://localhost/activities");
   });
 
   it("allows authenticated dashboard requests through", () => {
     const response = proxy(
       request("/dashboard", {
         access_token: "token",
-        guardian_identity: "identity",
+        guardian_identity: linkedGuardianIdentity,
       }),
     );
 

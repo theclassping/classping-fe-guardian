@@ -28,8 +28,7 @@
 | PROXY-04 | Authenticated dashboard | Open `/dashboard` with both auth cookies | The request passes through to the requested page. |
 | PROXY-05 | Partial session | Open `/login` with only one auth cookie | The request remains on the login page. |
 | LOGIN-01 | Login API | Submit an empty email or password | The API returns HTTP 400 with a validation detail. |
-| LOGIN-02 | Demo login | Submit the configured demo credentials | The API returns the demo identity and sets auth cookies. |
-| LOGIN-03 | Demo login | Submit an incorrect demo password without a backend | The API returns HTTP 503 with a configuration detail. |
+| LOGIN-02 | Login API | Submit credentials while the backend URL is not configured | The API returns HTTP 503; no local or example account is accepted. |
 | LOGOUT-01 | Logout API | Logout with local cookies | The API returns success and clears all local auth cookies. |
 | RESET-01 | Forgot password | Submit without backend configuration | The API returns HTTP 503 with a configuration detail. |
 | RESET-02 | Forgot password | Submit with a configured backend | The request body is forwarded and the backend response is returned. |

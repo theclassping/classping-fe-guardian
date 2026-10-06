@@ -3,8 +3,8 @@ import { decodeIdentity, encodeIdentity, type GuardianIdentity } from "@/lib/aut
 
 describe("guardian identity encoding", () => {
   const identity: GuardianIdentity = {
-    name: "Rina Ramadhani",
-    email: "rina@example.com",
+    name: "Guardian Example",
+    email: "guardian@example.test",
     role: "PARENT",
   };
 
@@ -12,13 +12,9 @@ describe("guardian identity encoding", () => {
     expect(decodeIdentity(encodeIdentity(identity))).toEqual(identity);
   });
 
-  it("returns the fallback identity when the cookie is absent or malformed", () => {
-    expect(decodeIdentity()).toEqual({
-      name: "Rina Ramadhani",
-      email: "ani.dua.anak@gmail.com",
-      role: "PARENT",
-    });
-    expect(decodeIdentity("not-valid-base64-json")).toEqual(decodeIdentity());
+  it("returns no identity when the cookie is absent or malformed", () => {
+    expect(decodeIdentity()).toBeNull();
+    expect(decodeIdentity("not-valid-base64-json")).toBeNull();
   });
 
   it("rejects identities with an unsupported role", () => {
@@ -27,6 +23,6 @@ describe("guardian identity encoding", () => {
       "utf8",
     ).toString("base64url");
 
-    expect(decodeIdentity(invalid)).toEqual(decodeIdentity());
+    expect(decodeIdentity(invalid)).toBeNull();
   });
 });

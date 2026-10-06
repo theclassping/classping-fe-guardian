@@ -27,34 +27,10 @@ describe("login API route", () => {
     });
   });
 
-  it("logs in with the configured demo account", async () => {
-    vi.stubEnv("DEMO_AUTH_ENABLED", "true");
+  it("requires the backend even if example credentials are submitted", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const response = await POST(
-      loginRequest({
-        email: "ANI.DUA.ANAK@GMAIL.COM",
-        password: "ani2anak",
-        remember: true,
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      success: true,
-      demo: true,
-      user: { name: "Rina Ramadhani", role: "PARENT" },
-    });
-    expect(response.cookies.get("access_token")?.value).toBe(
-      "classping-guardian-demo",
-    );
-    expect(response.cookies.get("access_token")?.maxAge).toBe(604800);
-  });
-
-  it("rejects invalid demo credentials when no backend is configured", async () => {
-    vi.stubEnv("DEMO_AUTH_ENABLED", "true");
-    const { POST } = await import("@/app/api/auth/login/route");
-    const response = await POST(
-      loginRequest({ email: "ani.dua.anak@gmail.com", password: "wrong" }),
+      loginRequest({ email: "ani.dua.anak@gmail.com", password: "ani2anak" }),
     );
 
     expect(response.status).toBe(503);

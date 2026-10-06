@@ -57,20 +57,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      process.env.DEMO_AUTH_ENABLED === "true" &&
-      body.email.toLowerCase() === "ani.dua.anak@gmail.com" &&
-      body.password === "ani2anak"
-    ) {
-      const identity: GuardianIdentity = { name: "Rina Ramadhani", email: "ani.dua.anak@gmail.com", role: "PARENT" };
-      const response = NextResponse.json({ success: true, user: identity, demo: true });
-      const secure = process.env.NODE_ENV === "production";
-      const persistent = body.remember ? { maxAge: 60 * 60 * 24 * 7 } : {};
-      response.cookies.set("access_token", "classping-guardian-demo", { httpOnly: true, secure, sameSite: "lax", path: "/", ...persistent });
-      response.cookies.set("guardian_identity", encodeIdentity(identity), { httpOnly: true, secure, sameSite: "lax", path: "/", ...persistent });
-      return response;
-    }
-
     if (!apiBase) {
       return NextResponse.json(
         { detail: "Server autentikasi belum dikonfigurasi." },

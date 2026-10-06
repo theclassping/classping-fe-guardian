@@ -4,11 +4,11 @@ This guide describes how ClassPing Guardian moves from development to staging an
 
 ## Environments and branches
 
-| Environment | Git branch | Purpose | Demo authentication |
-| --- | --- | --- | --- |
-| Local | Feature branch based on `dev` | Implementation and developer testing | Optional, local use only |
-| Staging | `dev` | Integration testing with staging services | `false` by default |
-| Production | `release` | Family-facing stable release | Always `false` |
+| Environment | Git branch | Purpose |
+| --- | --- | --- |
+| Local | Feature branch based on `dev` | Implementation and developer testing |
+| Staging | `dev` | Integration testing with staging services |
+| Production | `release` | Family-facing stable release |
 
 `main` is retained for repository compatibility. New product work starts from `dev`, and production releases are created only by promoting `dev` to `release`.
 
@@ -44,7 +44,6 @@ Configure variables in **Vercel → Project → Settings → Environment Variabl
 ```text
 DJANGO_API_URL=https://<staging-backend-host>
 NEXT_PUBLIC_SCHOOL_APP_URL=https://<staging-school-host>
-DEMO_AUTH_ENABLED=false
 ```
 
 Scope the values to Preview and, when Vercel offers a branch selector, restrict them to `dev`.
@@ -54,12 +53,11 @@ Scope the values to Preview and, when Vercel offers a branch selector, restrict 
 ```text
 DJANGO_API_URL=https://<production-backend-host>
 NEXT_PUBLIC_SCHOOL_APP_URL=https://<production-school-host>
-DEMO_AUTH_ENABLED=false
 ```
 
 Scope these values to Production. Never expose backend credentials in a `NEXT_PUBLIC_` variable. `DJANGO_API_URL` is server-only; `NEXT_PUBLIC_SCHOOL_APP_URL` is intentionally visible in the browser.
 
-The prototype login (`ani.dua.anak@gmail.com` / `ani2anak`) is a local demonstration aid. Enabling `DEMO_AUTH_ENABLED` on a public deployment creates a known authentication bypass and is not permitted for staging or production.
+Authentication always uses ClassPing Backend credentials. No built-in demo account or bypass is provided.
 
 ## Development workflow
 

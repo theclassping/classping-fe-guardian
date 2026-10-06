@@ -11,14 +11,6 @@ export default function LoginShowcase() {
           Ikuti aktivitas, perkembangan, dan informasi sekolah anak dalam
           satu ruang yang aman dan mudah dipahami.
         </p>
-        <div className="login-preview" aria-hidden="true">
-          <div className="login-preview__art">🎨</div>
-          <div>
-            <span>Aktivitas hari ini</span>
-            <strong>Melukis dengan Jari</strong>
-            <small>Anak belajar mengenal warna baru.</small>
-          </div>
-        </div>
       </div>
       <p className="login-showcase__footer">
         © 2026 ClassPing · Tumbuh bersama, setiap hari.
