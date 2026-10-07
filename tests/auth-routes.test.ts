@@ -91,3 +91,46 @@ describe("forgot-password API route", () => {
     });
   });
 });
+
+describe("reset-password API route", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  it("forwards the reset request and clears only guardian cookies on success", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ detail: "Password has been reset successfully." }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    )));
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const response = await POST(request("/api/auth/reset-password", {
+      uid: "NA", token: "valid-token", new_password: "NewPassword123!",
+    }, { access_token: "guardian", school_access_token: "school" }));
+
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.test/api/auth/reset-password/",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(response.cookies.get("access_token")?.value).toBe("");
+    expect(response.cookies.get("refresh_token")?.value).toBe("");
+    expect(response.cookies.get("school_access_token")).toBeUndefined();
+  });
+
+  it("keeps sessions and forwards an invalid-link response", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+      { detail: "Invalid or expired password reset link." }, { status: 400 },
+    )));
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const response = await POST(request("/api/auth/reset-password", {
+      uid: "NA", token: "expired", new_password: "NewPassword123!",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(response.cookies.get("access_token")).toBeUndefined();
+    await expect(response.json()).resolves.toEqual({ detail: "Invalid or expired password reset link." });
+  });
+});
