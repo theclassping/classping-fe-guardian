@@ -28,7 +28,7 @@ export default async function GuardianDashboard() {
   const { child, studentId } = await selectedStudentForRequest();
   const activities = await activitiesForBackend(child.id, activitiesFor(child.id), studentId ? Number(studentId) : undefined);
   const assessments = assessmentsFor(child.id);
-  const invoices = await invoicesForBackend(child.id, invoicesFor(child.id));
+  const invoices = await invoicesForBackend(child.id, invoicesFor(child.id), studentId ? Number(studentId) : undefined);
   const nextInvoice = invoices[0];
   const childQuery = studentId ? `?student_id=${studentId}` : `?child=${child.id}`;
   const isJisindo = child.id === "jisindo";

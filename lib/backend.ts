@@ -140,6 +140,13 @@ function formatClassLabel(name?: string, branchName?: string) {
   return label.startsWith("Kelas ") ? label : `Kelas ${label}`;
 }
 
+export function activeClassStudent(
+  embedded: ApiClassStudent[] = [],
+  fetched: ApiClassStudent[] = [],
+) {
+  return [...embedded, ...fetched].find((relation) => relation.is_current === true);
+}
+
 function nameFromTeacher(value?: ApiClassTeacher | string | number) {
   if (typeof value === "string") return value.trim() || undefined;
   if (!value || typeof value === "number") return undefined;
@@ -209,10 +216,7 @@ export async function studentForBackend(studentId: number, fallback: import("@/l
   ]);
   const classStudentRecords = records<ApiClassStudent>(classStudentPayload)
     .filter((relation) => Number(relation.student_id ?? relation.student) === studentId);
-  const classAssignment = item?.class_students?.find((entry) => entry.is_current)
-    || item?.class_students?.[0]
-    || classStudentRecords.find((entry) => entry.is_current)
-    || classStudentRecords[0];
+  const classAssignment = activeClassStudent(item?.class_students, classStudentRecords);
   const classId = classAssignment?.class_id;
   const classRecord = classId ? await get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`) : null;
   const className = formatClassLabel(classRecord?.name || classAssignment?.class_name, classRecord?.branch_name)
@@ -244,27 +248,23 @@ export async function schoolForBackend(studentId: number) {
   const student = await get<ApiStudent>(`/api/students/${studentId}/`);
   if (!student?.id) return null;
 
-  let branch: ApiBranch | undefined;
-  let academicYear: string | undefined;
-  if (student.location_id != null) {
-    const branchPayload = await get<ApiBranch[] | { results?: ApiBranch[] }>("/api/branches/");
-    branch = records<ApiBranch>(branchPayload).find((item) => Number(item.location_id) === Number(student.location_id));
-  }
+  const assignmentPayload = await get<ApiClassStudent[] | { results?: ApiClassStudent[] }>(`/api/class-students/?student_id=${studentId}&is_current=true`);
+  const currentAssignments = records<ApiClassStudent>(assignmentPayload)
+    .filter((item) => Number(item.student_id ?? item.student) === studentId);
+  const activeAssignment = activeClassStudent(student?.class_students, currentAssignments);
+  if (!activeAssignment?.class_id) return null;
 
-  const assignmentPayload = await get<ApiClassStudent[] | { results?: ApiClassStudent[] }>(`/api/class-students/?student_id=${studentId}`);
-  const assignments = records<ApiClassStudent>(assignmentPayload).filter((item) => Number(item.student_id ?? item.student) === studentId);
-  const classes = await Promise.all(assignments.map((item) => get<ApiClass>(`/api/classes/${encodeURIComponent(String(item.class_id))}/`)));
-  const resolvedClass = classes.find((item) => item && branch && Number(item.branch) === Number(branch.id))
-    || classes.find(Boolean);
-  if (resolvedClass) {
-    academicYear = resolvedClass.academic_year_name;
-    if (!branch && resolvedClass.branch) branch = await get<ApiBranch>(`/api/branches/${encodeURIComponent(String(resolvedClass.branch))}/`) || undefined;
-    if (!academicYear && resolvedClass.academic_year) {
-      const year = await get<{ name?: string }>(`/api/academic-years/${encodeURIComponent(String(resolvedClass.academic_year))}/`);
-      academicYear = year?.name;
-    }
-  }
+  const resolvedClass = await get<ApiClass>(`/api/classes/${encodeURIComponent(String(activeAssignment.class_id))}/`);
+  if (!resolvedClass?.branch) return null;
+
+  const branch = await get<ApiBranch>(`/api/branches/${encodeURIComponent(String(resolvedClass.branch))}/`);
   if (!branch?.school) return null;
+
+  let academicYear = resolvedClass.academic_year_name;
+  if (!academicYear && resolvedClass.academic_year) {
+    const year = await get<{ name?: string }>(`/api/academic-years/${encodeURIComponent(String(resolvedClass.academic_year))}/`);
+    academicYear = year?.name;
+  }
 
   const school = await get<ApiSchool>(`/api/schools/${encodeURIComponent(String(branch.school))}/`);
   if (!school) return null;
