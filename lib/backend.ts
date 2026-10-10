@@ -37,6 +37,7 @@ type ApiClassStudent = {
   class_id?: number | string;
   class_name?: string;
   is_current?: boolean;
+  class?: ApiClass;
 };
 
 type ApiClass = { id?: number | string; name?: string; branch?: number | string; branch_name?: string; academic_year?: number | string; academic_year_name?: string };
@@ -114,6 +115,7 @@ export type GuardianNotification = {
 type ApiStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string; location_id?: number | string | null; class_students?: ApiClassStudent[] };
 type ApiBranch = { id?: number | string; school?: number | string; name?: string; code?: string; address?: string; phone?: string; email?: string; location_id?: number | string };
 type ApiSchool = { id?: number; name?: string; register_number?: string; image_data?: string; description?: string; branches?: ApiBranch[] };
+type ApiAcademicYear = { id?: number | string; branch?: number | string; name?: string; is_current?: boolean };
 type ApiGuardian = { id?: number | string; user?: number | string | { id?: number | string }; user_id?: number | string; name?: string; email?: string; phone_number?: string };
 export type GuardianSchool = ApiSchool & { address?: string; phone_number?: string; email?: string; branch_name?: string; academic_year?: string };
 
@@ -192,6 +194,53 @@ async function get<T>(path: string): Promise<T | null> {
   }
 }
 
+async function getAll<T>(path: string): Promise<T[]> {
+  if (!apiBase) return [];
+  const accessToken = (await cookies()).get("access_token")?.value;
+  if (!accessToken) return [];
+
+  const baseOrigin = new URL(apiBase).origin;
+  let nextUrl: string | null = new URL(path, `${apiBase}/`).toString();
+  const visited = new Set<string>();
+  const items: T[] = [];
+
+  try {
+    while (nextUrl && !visited.has(nextUrl) && visited.size < 100) {
+      const pageUrl: URL = new URL(nextUrl);
+      if (pageUrl.origin !== baseOrigin || !pageUrl.pathname.startsWith("/api/")) break;
+      visited.add(nextUrl);
+
+      const response = await fetch(pageUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (!response.ok) break;
+
+      const payload = await response.json() as unknown;
+      if (Array.isArray(payload)) {
+        items.push(...payload as T[]);
+        break;
+      }
+      if (!payload || typeof payload !== "object") break;
+
+      const pageItems = "results" in payload && Array.isArray(payload.results)
+        ? payload.results
+        : "data" in payload && Array.isArray(payload.data)
+          ? payload.data
+          : null;
+      if (!pageItems) break;
+      items.push(...pageItems as T[]);
+
+      const next = "next" in payload && typeof payload.next === "string" ? payload.next : null;
+      nextUrl = next ? new URL(next, pageUrl).toString() : null;
+    }
+  } catch {
+    return items;
+  }
+
+  return items;
+}
+
 export async function studentForBackend(studentId: number, fallback: import("@/lib/data").ChildProfile) {
   const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
   const linkedStudent = identity?.students?.find((student) => student.id === studentId);
@@ -244,30 +293,66 @@ export async function schoolForBackend(studentId: number) {
   const student = await get<ApiStudent>(`/api/students/${studentId}/`);
   if (!student?.id) return null;
 
-  let branch: ApiBranch | undefined;
-  let academicYear: string | undefined;
-  if (student.location_id != null) {
-    const branchPayload = await get<ApiBranch[] | { results?: ApiBranch[] }>("/api/branches/");
-    branch = records<ApiBranch>(branchPayload).find((item) => Number(item.location_id) === Number(student.location_id));
+  let assignments = student.class_students || [];
+  if (!assignments.length) {
+    assignments = (await getAll<ApiClassStudent>(`/api/class-students/?student_id=${studentId}`))
+      .filter((item) => Number(item.student_id ?? item.student) === studentId);
   }
 
-  const assignmentPayload = await get<ApiClassStudent[] | { results?: ApiClassStudent[] }>(`/api/class-students/?student_id=${studentId}`);
-  const assignments = records<ApiClassStudent>(assignmentPayload).filter((item) => Number(item.student_id ?? item.student) === studentId);
-  const classes = await Promise.all(assignments.map((item) => get<ApiClass>(`/api/classes/${encodeURIComponent(String(item.class_id))}/`)));
-  const resolvedClass = classes.find((item) => item && branch && Number(item.branch) === Number(branch.id))
-    || classes.find(Boolean);
-  if (resolvedClass) {
-    academicYear = resolvedClass.academic_year_name;
-    if (!branch && resolvedClass.branch) branch = await get<ApiBranch>(`/api/branches/${encodeURIComponent(String(resolvedClass.branch))}/`) || undefined;
-    if (!academicYear && resolvedClass.academic_year) {
-      const year = await get<{ name?: string }>(`/api/academic-years/${encodeURIComponent(String(resolvedClass.academic_year))}/`);
-      academicYear = year?.name;
+  const classForAssignment = async (assignment: ApiClassStudent) => {
+    if (assignment.class?.branch != null) return assignment.class;
+    const classId = assignment.class_id ?? assignment.class?.id;
+    return classId == null
+      ? null
+      : get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`);
+  };
+  const currentAssignments = assignments.filter((item) => item.is_current === true);
+  const hasCurrentAssignments = currentAssignments.length > 0;
+  const resolvedClasses = (await Promise.all(currentAssignments.map(classForAssignment)))
+    .filter((item): item is ApiClass => Boolean(item?.branch));
+  const branchIds = [...new Set(resolvedClasses.map((item) => Number(item.branch)).filter((id) => Number.isInteger(id) && id > 0))];
+
+  let branch: ApiBranch | undefined;
+  let selectedClass: ApiClass | undefined;
+  if (hasCurrentAssignments && branchIds.length === 1) {
+    branch = await get<ApiBranch>(`/api/branches/${encodeURIComponent(String(branchIds[0]))}/`) || undefined;
+    selectedClass = resolvedClasses.find((item) => Number(item.branch) === branchIds[0]);
+  } else if (hasCurrentAssignments && branchIds.length > 1 && student.location_id != null) {
+    const allBranches = await getAll<ApiBranch>("/api/branches/");
+    const locationBranches = allBranches.filter((item) => Number(item.location_id) === Number(student.location_id));
+    const matchingBranchIds = branchIds.filter((id) => locationBranches.some((item) => Number(item.id) === id));
+    if (matchingBranchIds.length === 1) {
+      branch = locationBranches.find((item) => Number(item.id) === matchingBranchIds[0]);
+      selectedClass = resolvedClasses.find((item) => Number(item.branch) === matchingBranchIds[0]);
     }
+  } else if (!hasCurrentAssignments && student.location_id != null) {
+    // Old class assignments may belong to a previous branch. When there is no
+    // explicitly current class, use the student's location only if it points
+    // to one branch; never treat the first historical class as current.
+    const allBranches = await getAll<ApiBranch>("/api/branches/");
+    const locationBranches = allBranches.filter((item) => Number(item.location_id) === Number(student.location_id));
+    if (locationBranches.length === 1) branch = locationBranches[0];
+  }
+
+  if (!branch?.id && hasCurrentAssignments && student.location_id != null && branchIds.length === 1) {
+    const allBranches = await getAll<ApiBranch>("/api/branches/");
+    branch = allBranches.find((item) => Number(item.id) === branchIds[0]);
   }
   if (!branch?.school) return null;
 
   const school = await get<ApiSchool>(`/api/schools/${encodeURIComponent(String(branch.school))}/`);
   if (!school) return null;
+
+  let academicYear = selectedClass?.academic_year_name;
+  if (!academicYear && selectedClass?.academic_year != null) {
+    const year = await get<ApiAcademicYear>(`/api/academic-years/${encodeURIComponent(String(selectedClass.academic_year))}/`);
+    if (year && Number(year.branch) === Number(branch.id)) academicYear = year.name;
+  }
+  if (!academicYear) {
+    const academicYears = await getAll<ApiAcademicYear>(`/api/academic-years/?branch_id=${encodeURIComponent(String(branch.id))}&is_current=true`);
+    academicYear = academicYears.find((year) => year.is_current && Number(year.branch) === Number(branch.id))?.name;
+  }
+
   return {
     ...school,
     address: branch.address,
