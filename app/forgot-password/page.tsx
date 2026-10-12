@@ -22,9 +22,9 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = (await response.json()) as { detail?: string };
-      if (!response.ok) setError(data.detail || "Permintaan tidak dapat diproses.");
-      else setMessage(data.detail || "Tautan pemulihan telah dikirim jika akun terdaftar.");
+      const data = (await response.json()) as { detail?: string; email?: string[] };
+      if (!response.ok) setError(data.email?.[0] || data.detail || "Permintaan tidak dapat diproses.");
+      else setMessage("Jika akun terdaftar, tautan pemulihan telah dikirim ke email Anda.");
     } catch {
       setError("Tidak dapat terhubung ke server.");
     } finally {
@@ -39,11 +39,11 @@ export default function ForgotPasswordPage() {
         <p className="eyebrow">PEMULIHAN AKUN</p>
         <h1>Lupa kata sandi?</h1>
         <p>Masukkan email yang terdaftar. Kami akan mengirim petunjuk untuk membuat kata sandi baru.</p>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} aria-busy={loading}>
           <label htmlFor="recoveryEmail">Alamat email</label>
           <div className="login-input">
             <Mail aria-hidden="true" />
-            <input id="recoveryEmail" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <input id="recoveryEmail" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
           </div>
           {error && <p className="form-message error" role="alert">{error}</p>}
           {message && <p className="form-message success" role="status">{message}</p>}

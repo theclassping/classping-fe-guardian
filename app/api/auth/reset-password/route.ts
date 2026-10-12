@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const data = await response.text();
     const result = new NextResponse(data, {
       status: response.status,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
 
     if (response.ok) {

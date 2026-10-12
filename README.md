@@ -24,6 +24,7 @@ This repository is intentionally separate from [`classping-fe-school`](https://g
 | --- | --- |
 | `/login` | Guardian login and role-aware authentication |
 | `/forgot-password` | Password recovery request |
+| `/reset-password` | Set a new password using the email link |
 | `/dashboard` | Child overview, recent activity, assessment, and fee summary |
 | `/dashboard/activities` | Searchable activity feed for the authenticated child |
 | `/dashboard/activities/[slug]` | Activity story, teacher note, photos, and privacy context |
@@ -57,6 +58,19 @@ The browser never writes JWTs to `localStorage`.
 7. Logout revokes the token pair through the backend when available, then clears local cookies.
 
 `TEACHER` and `STAFF` accounts are deliberately rejected here. They belong in the companion school application.
+
+### Password recovery
+
+Use **Lupa kata sandi?** on `/login` to request an email through
+`/api/auth/forgot-password`. The email opens `/reset-password?uid=…&token=…`;
+Django validates the token and new password through `/api/auth/reset-password`.
+Successful resets clear only Guardian session cookies. An invalid link can request
+a fresh email. Passwords and reset tokens are not saved in browser storage.
+
+Email delivery and `GUARDIAN_PASSWORD_RESET_URL` must be configured on the backend.
+For dev deployments, use
+`https://classping-fe-guardian-git-dev-the-classping.vercel.app/reset-password`;
+for a local backend, use `http://localhost:3001/reset-password`.
 
 ## Local development
 

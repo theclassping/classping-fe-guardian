@@ -68,7 +68,7 @@ function ResetPasswordForm() {
             <p className="eyebrow">KEAMANAN AKUN</p>
             <h1>Buat kata sandi baru</h1>
             <p>Gunakan kata sandi baru untuk melindungi akun ClassPing Anda.</p>
-            <form onSubmit={submit}>
+            <form onSubmit={submit} aria-busy={loading}>
               <label htmlFor="newPassword">Kata sandi baru</label>
               <div className="login-input">
                 <LockKeyhole aria-hidden="true" />
@@ -82,7 +82,7 @@ function ResetPasswordForm() {
                 <button type="button" onClick={() => setShowConfirmation((value) => !value)} aria-label={showConfirmation ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}>{showConfirmation ? <EyeOff /> : <Eye />}</button>
               </div>
               {error && <p className="form-message error" role="alert">{error}</p>}
-              <button className="primary-button" type="submit" disabled={loading}>{loading ? "Menyimpan…" : "Simpan kata sandi baru"}</button>
+              <button className="primary-button" type="submit" disabled={loading || !uid || !token}>{loading ? "Menyimpan…" : "Simpan kata sandi baru"}</button>
             </form>
             <Link className="back-link" href="/forgot-password"><ArrowLeft /> Minta tautan pemulihan baru</Link>
           </>

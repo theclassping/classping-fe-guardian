@@ -112,11 +112,19 @@ describe("reset-password API route", () => {
     expect(response.status).toBe(200);
     expect(fetch).toHaveBeenCalledWith(
       "https://api.example.test/api/auth/reset-password/",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        cache: "no-store",
+        body: JSON.stringify({ uid: "NA", token: "valid-token", new_password: "NewPassword123!" }),
+      }),
     );
     expect(response.cookies.get("access_token")?.value).toBe("");
     expect(response.cookies.get("refresh_token")?.value).toBe("");
+    expect(response.cookies.get("guardian_identity")?.value).toBe("");
+    expect(response.cookies.get("current_student_id")?.value).toBe("");
     expect(response.cookies.get("school_access_token")).toBeUndefined();
+    expect(response.cookies.get("school_refresh_token")).toBeUndefined();
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
   it("keeps sessions and forwards an invalid-link response", async () => {
@@ -132,5 +140,36 @@ describe("reset-password API route", () => {
     expect(response.status).toBe(400);
     expect(response.cookies.get("access_token")).toBeUndefined();
     await expect(response.json()).resolves.toEqual({ detail: "Invalid or expired password reset link." });
+  });
+
+  it("returns a configuration error without contacting an unconfigured backend", async () => {
+    vi.stubEnv("DJANGO_API_URL", "");
+    vi.stubGlobal("fetch", vi.fn());
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const response = await POST(request("/api/auth/reset-password", {}));
+    expect(response.status).toBe(503);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(response.cookies.get("access_token")).toBeUndefined();
+  });
+
+  it("reports a backend outage without clearing the session", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const response = await POST(request("/api/auth/reset-password", {}));
+    expect(response.status).toBe(502);
+    expect(response.cookies.get("access_token")).toBeUndefined();
+  });
+
+  it("forwards backend password validation errors unchanged", async () => {
+    vi.stubEnv("DJANGO_API_URL", "https://api.example.test/");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+      { new_password: ["This password is too common."] }, { status: 400 },
+    )));
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const response = await POST(request("/api/auth/reset-password", {}));
+    expect(response.status).toBe(400);
+    expect(response.cookies.get("access_token")).toBeUndefined();
+    await expect(response.json()).resolves.toEqual({ new_password: ["This password is too common."] });
   });
 });
