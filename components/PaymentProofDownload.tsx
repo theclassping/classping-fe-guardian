@@ -2,15 +2,10 @@
 
 import { Download } from "lucide-react";
 import { useState } from "react";
+import { latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
+import type { ApiPayment } from "@/lib/payments";
 
-type PaymentProof = { image_url?: string; url?: string; image_data?: { image_url?: string; url?: string } };
-type Payment = { proofs?: PaymentProof[] };
-
-function proofUrl(proof?: PaymentProof) {
-  return proof?.image_url || proof?.url || proof?.image_data?.image_url || proof?.image_data?.url;
-}
-
-export default function PaymentProofDownload({ invoiceId, fallbackUrl }: { invoiceId: string; fallbackUrl?: string }) {
+export default function PaymentProofDownload({ invoiceId }: { invoiceId: string }) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,11 +16,9 @@ export default function PaymentProofDownload({ invoiceId, fallbackUrl }: { invoi
       // Refetch the payment record at click time, like activities are refetched
       // on page load, so we do not rely on an old one-hour presigned URL.
       const paymentResponse = await fetch(`/api/proxy/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`, { cache: "no-store" });
-      const payload = await paymentResponse.json() as Payment[] | { results?: Payment[] };
+      const payload = await paymentResponse.json() as ApiPayment[] | { results?: ApiPayment[] };
       const payments = Array.isArray(payload) ? payload : payload.results || [];
-      const latestPayment = payments[payments.length - 1];
-      const latestProof = latestPayment?.proofs?.[latestPayment.proofs.length - 1];
-      const currentUrl = proofUrl(latestProof) || fallbackUrl;
+      const currentUrl = verifiedPaymentProofUrl(latestPayment(payments));
       if (!paymentResponse.ok || !currentUrl) throw new Error("Bukti pembayaran tidak tersedia.");
 
       const response = await fetch(currentUrl, { cache: "no-store" });

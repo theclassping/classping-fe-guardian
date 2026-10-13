@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { decodeIdentity } from "@/lib/auth";
 import { getChild } from "@/lib/data";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
+import { invoicePaymentState, isVerifiedPayment, latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
+import type { ApiPayment } from "@/lib/payments";
 
 type ApiActivity = {
   id?: number;
@@ -81,6 +83,7 @@ type ApiInvoice = {
   created_at?: string;
   updated_at?: string;
   fee_type_name?: string;
+  fee_type?: { name?: string } | null;
   due_date?: string;
   status?: string;
   subtotal?: string;
@@ -90,17 +93,8 @@ type ApiInvoice = {
   payment_method?: string;
   paid_at?: string;
   payment_date?: string;
-  payments?: { payment_method?: string; paid_at?: string; payment_date?: string; created_at?: string; amount?: string; status?: string; payment_status?: string; proofs?: { image_url?: string; url?: string; image_data?: { image_url?: string; url?: string } }[] }[];
-};
-
-type ApiPayment = {
-  payment_method?: string;
-  paid_at?: string;
-  payment_date?: string;
-  created_at?: string;
-  status?: string;
-  payment_status?: string;
-  proofs?: { image_url?: string; url?: string; image_data?: { image_url?: string; url?: string } }[];
+  payment?: ApiPayment | null;
+  payments?: ApiPayment[];
 };
 
 export type GuardianNotification = {
@@ -398,7 +392,7 @@ function titleizeStatus(value?: string) {
 
 function statusTone(value?: string): Invoice["statusTone"] {
   const normalized = String(value || "").toLowerCase();
-  if (["paid", "paid_full", "verified", "approved", "completed", "lunas"].some((status) => normalized.includes(status))) return "success";
+  if (["paid", "paid_full", "verified", "approved", "completed", "lunas"].includes(normalized)) return "success";
   if (["partial", "partially_paid", "sebagian"].some((status) => normalized.includes(status))) return "partial";
   if (["late", "overdue", "terlambat"].some((status) => normalized.includes(status))) return "late";
   return "warning";
@@ -512,11 +506,24 @@ export async function notificationsForBackend(studentId?: number): Promise<Guard
     const occurredAt = item.updated_at || item.created_at || item.invoice_date;
     const month = item.invoice_date ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(item.invoice_date)) : item.invoice_no || "Tagihan";
     const status = item.status ? titleizeStatus(item.status) : "Status diperbarui";
+    const payment = item.payment || latestPayment(item.payments);
+    const invoiceStatus = String(item.status || "").toLowerCase();
+    const rejected = payment?.status === "rejected" && invoiceStatus === "unpaid";
+    const verified = invoiceStatus === "paid" || (isVerifiedPayment(payment) && invoiceStatus !== "unpaid");
+    const copy = rejected
+      ? `Pembayaran Anda ditolak. ${payment.rejection_reason ? `Alasan: ${payment.rejection_reason}. ` : ""}Status tagihan kembali menjadi belum dibayar. Silakan unggah ulang bukti pembayaran atau hubungi pihak sekolah.`
+      : verified
+        ? "Pembayaran Anda telah diverifikasi. Status tagihan telah diperbarui menjadi lunas."
+        : invoiceStatus === "payment_submitted"
+          ? "Bukti pembayaran Anda telah dikirim dan sedang menunggu verifikasi dari pihak sekolah."
+          : invoiceStatus === "unpaid"
+            ? "Tagihan Anda belum dibayar. Silakan unggah bukti pembayaran untuk melanjutkan."
+            : `Status tagihan Anda: ${status.toLowerCase()}.`;
     return {
       id: `payment:${item.id}:${occurredAt || status}`,
       kind: "payment",
       title: `Tagihan ${month}`,
-      copy: `Status pembayaran: ${status}.`,
+      copy,
       href: `/dashboard/payments/${item.id}`,
       occurredAt,
     };
@@ -527,34 +534,35 @@ export async function notificationsForBackend(studentId?: number): Promise<Guard
     .slice(0, 10);
 }
 
-function mapInvoice(item: ApiInvoice, childId: ChildId): Invoice {
+function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment || latestPayment(item.payments)): Invoice {
   const billAmount = Number(item.total_amount || item.subtotal || 0);
   const paidAmount = Number(item.amount_paid || 0);
   const paid = paidAmount >= billAmount && billAmount > 0;
-  const latestPayment = item.payments?.[item.payments.length - 1];
-  const paymentMethod = item.payment_method || latestPayment?.payment_method;
-  const paymentStatus = String(latestPayment?.status || latestPayment?.payment_status || item.status || "").toLowerCase();
-  const verified = ["verified", "approved"].some((status) => paymentStatus.includes(status));
   const apiStatus = item.status;
-  const paymentDate = verified
-    ? item.paid_at || item.payment_date || latestPayment?.paid_at || latestPayment?.payment_date || latestPayment?.created_at
-    : latestPayment?.created_at || item.created_at;
+  const state = invoicePaymentState({ status: apiStatus || "", billAmount, paidAmount });
+  const verified = state === "paid" && isVerifiedPayment(payment);
+  const rejected = state === "unpaid" && payment?.status === "rejected";
+  const paymentDate = state === "paid" ? item.paid_at || item.payment_date || payment?.paid_at || payment?.payment_date : undefined;
   return {
     childId,
     slug: String(item.id ?? item.invoice_no ?? "invoice"),
     month: item.invoice_date ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(item.invoice_date)) : item.invoice_no || "Tagihan",
+    feeType: item.fee_type?.name?.trim() || item.fee_type_name?.trim() || "Biaya sekolah",
     amount: new Intl.NumberFormat("id-ID", { style: "currency", currency: item.currency || "IDR", maximumFractionDigits: 0 }).format(Math.max(0, billAmount - paidAmount)),
     billAmount,
     paidAmount,
     dueDate: item.due_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.due_date)) : "Belum tersedia",
     status: apiStatus ? titleizeStatus(apiStatus) : paid ? "Lunas" : paidAmount > 0 ? `Sebagian · sisa ${new Intl.NumberFormat("id-ID", { style: "currency", currency: item.currency || "IDR", maximumFractionDigits: 0 }).format(billAmount - paidAmount)}` : "Menunggu pembayaran",
     statusTone: apiStatus ? statusTone(apiStatus) : paid ? "success" : paidAmount > 0 ? "partial" : "warning",
-    method: titleizePaymentMethod(paymentMethod),
+    method: titleizePaymentMethod(item.payment_method || payment?.payment_method),
     paidAt: humanizePaymentDate(paymentDate),
     fine: "Tidak ada",
-    paymentSubmitted: Boolean(latestPayment),
-    verifiedAt: verified ? humanizePaymentDate(paymentDate) : "—",
-    proofUrl: latestPayment?.proofs?.[latestPayment.proofs.length - 1]?.image_url || latestPayment?.proofs?.[latestPayment.proofs.length - 1]?.url || latestPayment?.proofs?.[latestPayment.proofs.length - 1]?.image_data?.image_url || latestPayment?.proofs?.[latestPayment.proofs.length - 1]?.image_data?.url,
+    paymentSubmitted: state === "submitted",
+    paymentId: payment?.id,
+    paymentMethod: payment?.payment_method,
+    rejectionReason: rejected ? payment.rejection_reason || "Bukti pembayaran belum dapat diverifikasi." : undefined,
+    verifiedAt: verified ? humanizePaymentDate(payment?.verified_at || paymentDate) : "—",
+    proofUrl: verified ? verifiedPaymentProofUrl(payment) : undefined,
   } as Invoice;
 }
 
@@ -565,16 +573,6 @@ export async function invoiceForBackend(invoiceId: string, childId: ChildId, fal
   const invoice = mapInvoice(record, childId);
   const paymentPayload = await get<ApiPayment[] | { results?: ApiPayment[] }>(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`);
   const payments = Array.isArray(paymentPayload) ? paymentPayload : paymentPayload?.results || [];
-  const latestPayment = payments[payments.length - 1];
-  if (!latestPayment) return invoice;
-  return {
-    ...invoice,
-    method: titleizePaymentMethod(latestPayment.payment_method) || invoice.method,
-    paidAt: humanizePaymentDate(latestPayment.paid_at || latestPayment.payment_date || latestPayment.created_at) || invoice.paidAt,
-    paymentSubmitted: true,
-    status: invoice.status,
-    statusTone: invoice.statusTone,
-    verifiedAt: ["verified", "approved"].some((status) => String(latestPayment.status || latestPayment.payment_status || "").toLowerCase().includes(status)) ? humanizePaymentDate(latestPayment.paid_at || latestPayment.payment_date) : "—",
-    proofUrl: latestPayment.proofs?.[latestPayment.proofs.length - 1]?.image_url || latestPayment.proofs?.[latestPayment.proofs.length - 1]?.url || latestPayment.proofs?.[latestPayment.proofs.length - 1]?.image_data?.image_url || latestPayment.proofs?.[latestPayment.proofs.length - 1]?.image_data?.url,
-  } as Invoice;
+  const payment = latestPayment(payments);
+  return payment ? mapInvoice(record, childId, payment) : invoice;
 }

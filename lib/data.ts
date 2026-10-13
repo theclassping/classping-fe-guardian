@@ -48,6 +48,7 @@ export type Invoice = {
   childId: ChildId;
   slug: string;
   month: string;
+  feeType: string;
   amount: string;
   billAmount: number;
   paidAmount: number;
@@ -58,6 +59,9 @@ export type Invoice = {
   paidAt: string;
   fine: string;
   paymentSubmitted?: boolean;
+  paymentId?: number;
+  paymentMethod?: string;
+  rejectionReason?: string;
   verifiedAt?: string;
   proofUrl?: string;
 };
@@ -97,12 +101,12 @@ export const assessments: Assessment[] = [
 ];
 
 export const invoices: Invoice[] = [
-  { childId: "alya", slug: "alya-spp-september-2026", month: "September 2026", amount: "Rp 250.000", billAmount: 250000, paidAmount: 0, dueDate: "10 September 2026", status: "Menunggu pembayaran", statusTone: "warning", method: "—", paidAt: "—", fine: "Rp 5.000 / hari setelah jatuh tempo" },
-  { childId: "alya", slug: "alya-spp-agustus-2026", month: "Agustus 2026", amount: "Rp 250.000", billAmount: 250000, paidAmount: 250000, dueDate: "10 Agustus 2026", status: "Lunas", statusTone: "success", method: "Transfer Bank", paidAt: "2 Agustus 2026", fine: "Tidak ada" },
-  { childId: "alya", slug: "alya-spp-juli-2026", month: "Juli 2026", amount: "Rp 250.000", billAmount: 250000, paidAmount: 250000, dueDate: "10 Juli 2026", status: "Lunas", statusTone: "success", method: "QRIS", paidAt: "8 Juli 2026", fine: "Tidak ada" },
-  { childId: "jisindo", slug: "jisindo-spp-september-2026", month: "September 2026", amount: "Rp 275.000", billAmount: 275000, paidAmount: 0, dueDate: "10 September 2026", status: "Menunggu pembayaran", statusTone: "warning", method: "—", paidAt: "—", fine: "Rp 5.000 / hari setelah jatuh tempo" },
-  { childId: "jisindo", slug: "jisindo-spp-agustus-2026", month: "Agustus 2026", amount: "Rp 275.000", billAmount: 275000, paidAmount: 175000, dueDate: "10 Agustus 2026", status: "Sebagian · sisa Rp 100.000", statusTone: "partial", method: "Transfer Bank", paidAt: "19 Agustus 2026", fine: "Tidak ada" },
-  { childId: "jisindo", slug: "jisindo-spp-juli-2026", month: "Juli 2026", amount: "Rp 275.000", billAmount: 275000, paidAmount: 275000, dueDate: "10 Juli 2026", status: "Lunas", statusTone: "success", method: "Transfer Bank", paidAt: "9 Juli 2026", fine: "Tidak ada" },
+  { childId: "alya", slug: "alya-spp-september-2026", month: "September 2026", feeType: "SPP", amount: "Rp 250.000", billAmount: 250000, paidAmount: 0, dueDate: "10 September 2026", status: "Menunggu pembayaran", statusTone: "warning", method: "—", paidAt: "—", fine: "Rp 5.000 / hari setelah jatuh tempo" },
+  { childId: "alya", slug: "alya-spp-agustus-2026", month: "Agustus 2026", feeType: "SPP", amount: "Rp 250.000", billAmount: 250000, paidAmount: 250000, dueDate: "10 Agustus 2026", status: "Lunas", statusTone: "success", method: "Transfer Bank", paidAt: "2 Agustus 2026", fine: "Tidak ada" },
+  { childId: "alya", slug: "alya-spp-juli-2026", month: "Juli 2026", feeType: "SPP", amount: "Rp 250.000", billAmount: 250000, paidAmount: 250000, dueDate: "10 Juli 2026", status: "Lunas", statusTone: "success", method: "QRIS", paidAt: "8 Juli 2026", fine: "Tidak ada" },
+  { childId: "jisindo", slug: "jisindo-spp-september-2026", month: "September 2026", feeType: "SPP", amount: "Rp 275.000", billAmount: 275000, paidAmount: 0, dueDate: "10 September 2026", status: "Menunggu pembayaran", statusTone: "warning", method: "—", paidAt: "—", fine: "Rp 5.000 / hari setelah jatuh tempo" },
+  { childId: "jisindo", slug: "jisindo-spp-agustus-2026", month: "Agustus 2026", feeType: "SPP", amount: "Rp 275.000", billAmount: 275000, paidAmount: 175000, dueDate: "10 Agustus 2026", status: "Sebagian · sisa Rp 100.000", statusTone: "partial", method: "Transfer Bank", paidAt: "19 Agustus 2026", fine: "Tidak ada" },
+  { childId: "jisindo", slug: "jisindo-spp-juli-2026", month: "Juli 2026", feeType: "SPP", amount: "Rp 275.000", billAmount: 275000, paidAmount: 275000, dueDate: "10 Juli 2026", status: "Lunas", statusTone: "success", method: "Transfer Bank", paidAt: "9 Juli 2026", fine: "Tidak ada" },
 ];
 
 export function activitiesFor(childId: ChildId) { return activities.filter((item) => item.childId === childId); }
