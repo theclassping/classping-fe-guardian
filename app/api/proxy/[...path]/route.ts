@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authorizeGuardianMutation } from "@/lib/guardian-access";
 
 const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
 
@@ -23,6 +24,8 @@ async function forward(request: NextRequest, path: string[]) {
   if (contentType) headers.set("Content-Type", contentType);
 
   try {
+    const rejection = await authorizeGuardianMutation(request, path, apiBase, accessToken);
+    if (rejection) return rejection;
     const response = await fetch(
       `${apiBase}/api/${path.join("/")}/${request.nextUrl.search}`,
       {

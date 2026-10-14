@@ -373,6 +373,9 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .guardian-form-card { padding: 18px; border: 1px solid #e5eee9; border-radius: 14px; background: #fbfdfc; }
 .guardian-form-card.new { margin-top: 14px; border-color: #9bcbb9; background: #f4faf7; }
 .guardian-form-card h3 { margin: 0 0 4px; font: 800 14px var(--font-plus-jakarta), sans-serif; color: var(--ink); }
+.guardian-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.guardian-edit-note { margin: 4px 0 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.guardian-form-card.read-only :is(input,select) { color: #53645d; background-color: #f1f5f3; box-shadow: none; cursor: default; opacity: 1; }
 .guardian-form-card .primary-button { margin-top: 16px; }
 .guardian-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .profile-settings-form label.primary-guardian-check { flex-direction: row; align-items: center; gap: 9px; margin-top: 15px; color: #496058; }
