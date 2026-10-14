@@ -70,7 +70,6 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
     {open && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section className="payment-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title">
         <header><span><Landmark /></span><div><h2 id="payment-dialog-title">Konfirmasi pembayaran</h2><p>Kirim pembayaran untuk {child.firstName}.</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Tutup"><X /></button></header>
-        <div className="bank-detail"><small>REKENING SEKOLAH</small><strong>Bank Mandiri · 123-456-7890</strong><span>a.n. TK Harapan Bangsa</span></div>
         <form onSubmit={submitPayment}>
           <div className="payment-upload-summary">
             <div><span>Jenis tagihan</span><strong>{selected?.feeType || "—"}</strong></div>

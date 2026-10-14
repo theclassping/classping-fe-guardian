@@ -24,8 +24,8 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
       <Link className="back-link" href={studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`}><ArrowLeft /> Kembali ke pembayaran</Link>
       <section className="invoice-card panel">
         <header><div><p className="eyebrow">TAGIHAN {invoice.feeType}</p><h1>{invoice.month}</h1><p>{child.name} · {child.className}</p></div><span className={`status-badge ${invoice.statusTone}`}>{invoice.status}</span></header>
-        <div className="invoice-total"><small>Total tagihan</small><strong>{invoice.amount}</strong></div>
-        <dl className="invoice-details"><div><dt>Jatuh tempo</dt><dd><CalendarClock /> {invoice.dueDate}</dd></div><div><dt>Metode pembayaran</dt><dd>—</dd></div><div><dt>Dibayarkan pada</dt><dd>{invoice.paidAt}</dd></div><div><dt>Diverifikasi pada</dt><dd>{invoice.verifiedAt || "—"}</dd></div><div><dt>Status Pembayaran</dt><dd>{invoice.status}</dd></div></dl>
+        <div className="invoice-total"><small>Total tagihan</small><strong>{paymentState === "paid" ? "Lunas" : invoice.amount}</strong></div>
+        <dl className="invoice-details"><div><dt>Jatuh tempo</dt><dd><CalendarClock /> {invoice.dueDate}</dd></div><div><dt>Metode pembayaran</dt><dd>{invoice.method || "—"}</dd></div><div><dt>Dibayarkan pada</dt><dd>{invoice.paidAt}</dd></div><div><dt>Diverifikasi pada</dt><dd>{invoice.verifiedAt || "—"}</dd></div><div><dt>Status Pembayaran</dt><dd>{invoice.status}</dd></div></dl>
         {invoice.rejectionReason && (
           <div className="payment-rejection-message" role="alert">
             <p><strong>Pembayaran ditolak.</strong></p>
