@@ -80,6 +80,13 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .login-submit { width: 100%; }
 .login-submit svg { margin-left: auto; }
 .login-help { margin: 24px 0 0; text-align: center; color: var(--muted); font-size: 11px; }
+.login-guide { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: inherit; text-decoration: none; transition: border-color .18s, background .18s; }
+.login-guide:hover { border-color: #bad9ce; background: #f3faf7; }
+.login-guide > svg { flex: 0 0 auto; width: 20px; height: 20px; color: var(--green); }
+.login-guide > svg:last-child { width: 17px; height: 17px; margin-left: auto; color: #8a9891; }
+.login-guide span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.login-guide strong { font-size: 13px; }
+.login-guide small { color: var(--muted); font-size: 12px; }
 .simple-auth-page { min-height: 100svh; display: grid; place-items: center; padding: 24px; background: var(--canvas); }
 .simple-auth-card { width: min(450px, 100%); padding: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow); }
 .simple-auth-card .brand { margin-bottom: 32px; }

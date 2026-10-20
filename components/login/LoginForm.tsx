@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { ArrowRight, Download, Eye, EyeOff, FileText, LockKeyhole, Mail } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Brand from "@/components/Brand";
 
@@ -115,6 +115,20 @@ export default function LoginForm() {
             <ArrowRight aria-hidden="true" />
           </button>
         </form>
+
+        <a
+          className="login-guide"
+          href="/panduan/panduan-portal-wali-murid.pdf"
+          target="_blank"
+          rel="noopener"
+        >
+          <FileText aria-hidden="true" />
+          <span>
+            <strong>Panduan pengguna</strong>
+            <small>Cara menggunakan portal wali murid (PDF)</small>
+          </span>
+          <Download aria-hidden="true" />
+        </a>
 
         <p className="login-help">
           Staf sekolah?{" "}
