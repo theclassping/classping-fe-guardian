@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, CalendarClock, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { invoices } from "@/lib/data";
-import { invoiceForBackend, selectedStudentForRequest } from "@/lib/backend";
+import { invoiceLookupForBackend, selectedStudentForRequest } from "@/lib/backend";
+import PaymentLookupNotice from "@/components/PaymentLookupNotice";
 import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
 import PaymentProofDownload from "@/components/PaymentProofDownload";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
@@ -16,12 +17,25 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const { child, studentId } = await selectedStudentForRequest();
   const fallbackInvoice = invoices.find((item) => item.slug === slug);
-  const invoice = await invoiceForBackend(slug, child.id, fallbackInvoice);
-  if (!invoice) notFound();
+  const listHref = studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`;
+  const lookup = await invoiceLookupForBackend(slug, child.id, fallbackInvoice);
+  if (lookup.state === "missing") notFound();
+  if (lookup.state === "unavailable") {
+    return (
+      <PaymentLookupNotice
+        emoji="⏳"
+        title="Tagihan belum dapat dimuat"
+        copy="Koneksi ke server sekolah sedang terganggu. Tagihan Anda tetap tersimpan; silakan coba lagi beberapa saat atau buka daftar tagihan untuk melihat status terbaru."
+        listHref={listHref}
+        retryHref={`/dashboard/payments/${encodeURIComponent(slug)}${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ""}`}
+      />
+    );
+  }
+  const { invoice } = lookup;
   const paymentState = invoicePaymentState(invoice);
   return (
     <article className="detail-page payment-detail">
-      <Link className="back-link" href={studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`}><ArrowLeft /> Kembali ke pembayaran</Link>
+      <Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link>
       <section className="invoice-card panel">
         <header><div><p className="eyebrow">TAGIHAN {invoice.feeType}</p><h1>{invoice.month}</h1><p>{child.name} · {child.className}</p></div><span className={`status-badge ${invoice.statusTone}`}>{invoice.status}</span></header>
         <div className="invoice-total"><small>Total tagihan</small><strong>{paymentState === "paid" ? "Lunas" : invoice.amount}</strong></div>

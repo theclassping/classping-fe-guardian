@@ -114,6 +114,8 @@ type ApiGuardian = { id?: number | string; user?: number | string | { id?: numbe
 export type GuardianSchool = ApiSchool & { address?: string; phone_number?: string; email?: string; branch_name?: string; academic_year?: string };
 
 const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
+/** Sample data is only shown when no backend is configured at all; a failing backend must never be disguised as demo content. */
+const demoMode = !apiBase;
 
 function records<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
@@ -178,21 +180,28 @@ export async function sessionStudentId() {
   if (Number.isInteger(currentId) && linkedIds.has(currentId)) return currentId;
   return identity.student_id ?? identity.students?.[0]?.id;
 }
-async function get<T>(path: string): Promise<T | null> {
-  if (!apiBase) return null;
+type ApiResult<T> = { status: number; data: T | null };
+
+/** Fetches a backend resource and keeps the HTTP status so callers can tell "not found" apart from "could not reach the API". Status 0 means no API/session or a network failure. */
+async function getWithStatus<T>(path: string): Promise<ApiResult<T>> {
+  if (!apiBase) return { status: 0, data: null };
   const accessToken = (await cookies()).get("access_token")?.value;
-  if (!accessToken) return null;
+  if (!accessToken) return { status: 0, data: null };
 
   try {
     const response = await fetch(`${apiBase}${path}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
-    if (!response.ok) return null;
-    return (await response.json()) as T;
+    if (!response.ok) return { status: response.status, data: null };
+    return { status: response.status, data: (await response.json()) as T };
   } catch {
-    return null;
+    return { status: 0, data: null };
   }
+}
+
+async function get<T>(path: string): Promise<T | null> {
+  return (await getWithStatus<T>(path)).data;
 }
 
 async function getAll<T>(path: string): Promise<T[]> {
@@ -416,7 +425,7 @@ export async function activitiesForBackend(childId: ChildId, fallback: Activity[
   filters.set("is_publish", "true");
   const payload = await get<ApiActivity[] | { results?: ApiActivity[] }>(`/api/activities/?${filters.toString()}`);
   const records = Array.isArray(payload) ? payload : payload?.results || null;
-  if (!records) return studentId ? [] : fallback;
+  if (!records) return demoMode ? fallback : [];
   const visibleRecords = records
     .filter((item) => item.is_publish !== false)
     .filter((item) => !studentId || activityMatchesStudent(item, studentId));
@@ -447,7 +456,7 @@ export async function activitiesForBackend(childId: ChildId, fallback: Activity[
 export async function activityForBackend(slug: string, childId: ChildId, fallback: Activity, studentId?: number) {
   const suffix = studentId ? `?student_id=${studentId}` : "";
   const item = await get<ApiActivity>(`/api/activities/${encodeURIComponent(slug)}/${suffix}`);
-  if (!item || item.is_publish === false) return studentId ? null : fallback;
+  if (!item || item.is_publish === false) return demoMode && !studentId ? fallback : null;
   if (studentId && !activityMatchesStudent(item, studentId)) return null;
   const visibleImages = imagesForStudent(item.activity_images, studentId);
   const teacher = await teacherForActivity(item, new Map());
@@ -468,10 +477,11 @@ export async function activityForBackend(slug: string, childId: ChildId, fallbac
   } as Activity;
 }
 
-export async function invoicesForBackend(childId: ChildId, fallback: Invoice[], studentId?: number) {
+/** Resolves to the guardian's bills, or `null` when the backend could not be read (expired session, outage). Sample bills only appear in demo mode. */
+export async function invoicesForBackend(childId: ChildId, fallback: Invoice[], studentId?: number): Promise<Invoice[] | null> {
   const payload = await get<ApiInvoice[] | { results?: ApiInvoice[] }>(studentId ? `/api/student-invoices/?student_id=${studentId}` : "/api/student-invoices/");
   const records = Array.isArray(payload) ? payload : payload?.results || null;
-  if (!records) return fallback;
+  if (!records) return demoMode ? fallback : null;
   const mapped = records
     .filter((item) => studentId ? Number(item.student_id) === studentId : childMatches(childId, item.class_name, item.student_name))
     .map((item) => mapInvoice(item, childId));
@@ -566,13 +576,28 @@ function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment |
   } as Invoice;
 }
 
-export async function invoiceForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice) {
-  const item = await get<ApiInvoice | { results?: ApiInvoice[] }>(`/api/student-invoices/${encodeURIComponent(invoiceId)}/`);
+export type InvoiceLookup =
+  | { state: "found"; invoice: Invoice }
+  /** The backend answered and the bill does not exist (or is not this guardian's). */
+  | { state: "missing" }
+  /** The backend could not be reached or rejected the session; the bill may still exist. */
+  | { state: "unavailable" };
+
+export async function invoiceLookupForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice): Promise<InvoiceLookup> {
+  const { status, data: item } = await getWithStatus<ApiInvoice | { results?: ApiInvoice[] }>(`/api/student-invoices/${encodeURIComponent(invoiceId)}/`);
   const record: ApiInvoice | undefined = item && typeof item === "object" && "results" in item ? item.results?.[0] : item as ApiInvoice | null || undefined;
-  if (!record) return fallback;
+  if (!record) {
+    if (demoMode) return fallback ? { state: "found", invoice: fallback } : { state: "missing" };
+    return status === 404 || status === 403 ? { state: "missing" } : { state: "unavailable" };
+  }
   const invoice = mapInvoice(record, childId);
   const paymentPayload = await get<ApiPayment[] | { results?: ApiPayment[] }>(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`);
   const payments = Array.isArray(paymentPayload) ? paymentPayload : paymentPayload?.results || [];
   const payment = latestPayment(payments);
-  return payment ? mapInvoice(record, childId, payment) : invoice;
+  return { state: "found", invoice: payment ? mapInvoice(record, childId, payment) : invoice };
+}
+
+export async function invoiceForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice) {
+  const lookup = await invoiceLookupForBackend(invoiceId, childId, fallback);
+  return lookup.state === "found" ? lookup.invoice : undefined;
 }

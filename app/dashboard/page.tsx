@@ -29,7 +29,7 @@ export default async function GuardianDashboard() {
   const activities = await activitiesForBackend(child.id, activitiesFor(child.id), studentId ? Number(studentId) : undefined);
   const assessments = assessmentsFor(child.id);
   const invoices = await invoicesForBackend(child.id, invoicesFor(child.id), studentId ? Number(studentId) : undefined);
-  const nextInvoice = invoices[0];
+  const nextInvoice = invoices?.[0];
   const childQuery = studentId ? `?student_id=${studentId}` : `?child=${child.id}`;
   const isJisindo = child.id === "jisindo";
 
@@ -51,14 +51,16 @@ export default async function GuardianDashboard() {
         <Link href={`/dashboard/activities${childQuery}`}>Lihat aktivitas <ArrowRight /></Link>
       </section>
 
-      <section className="fee-alert" aria-label="Pengingat tagihan">
-        <BellRing aria-hidden="true" />
-        <div>
-          <strong>SPP {nextInvoice.month} segera jatuh tempo</strong>
-          <p>{nextInvoice.amount} · Bayar sebelum {nextInvoice.dueDate} agar tidak terkena denda.</p>
-        </div>
-        <Link href={`/dashboard/payments/${nextInvoice.slug}${childQuery}`}>Lihat tagihan</Link>
-      </section>
+      {nextInvoice && (
+        <section className="fee-alert" aria-label="Pengingat tagihan">
+          <BellRing aria-hidden="true" />
+          <div>
+            <strong>SPP {nextInvoice.month} segera jatuh tempo</strong>
+            <p>{nextInvoice.amount} · Bayar sebelum {nextInvoice.dueDate} agar tidak terkena denda.</p>
+          </div>
+          <Link href={`/dashboard/payments/${nextInvoice.slug}${childQuery}`}>Lihat tagihan</Link>
+        </section>
+      )}
 
       <section className="summary-grid" aria-label={`Ringkasan ${child.firstName}`}>
         <article className="summary-card panel">
@@ -110,8 +112,14 @@ export default async function GuardianDashboard() {
 
           <article className="fee-card panel">
             <div className="section-title"><div><span>SPP & TAGIHAN</span><h2>Pembayaran</h2></div><CheckCircle2 /></div>
-            <div className="next-bill"><span>Tagihan berikutnya</span><strong>{nextInvoice.amount}</strong><small><Clock3 /> Jatuh tempo {nextInvoice.dueDate}</small></div>
-            <p className="fine-note">Denda keterlambatan: {nextInvoice.fine}</p>
+            {nextInvoice ? (
+              <>
+                <div className="next-bill"><span>Tagihan berikutnya</span><strong>{nextInvoice.amount}</strong><small><Clock3 /> Jatuh tempo {nextInvoice.dueDate}</small></div>
+                <p className="fine-note">Denda keterlambatan: {nextInvoice.fine}</p>
+              </>
+            ) : (
+              <p className="fine-note">{invoices ? "Tidak ada tagihan yang menunggu pembayaran." : "Tagihan belum dapat dimuat saat ini."}</p>
+            )}
             <Link className="primary-button full-button" href={`/dashboard/payments${childQuery}`}>Buka riwayat pembayaran</Link>
           </article>
         </aside>
