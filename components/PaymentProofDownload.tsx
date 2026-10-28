@@ -5,7 +5,7 @@ import { useState } from "react";
 import { latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
 
-export default function PaymentProofDownload({ invoiceId }: { invoiceId: string }) {
+export default function PaymentProofDownload({ invoiceId, variant = "button" }: { invoiceId: string; variant?: "button" | "link" }) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,9 +41,15 @@ export default function PaymentProofDownload({ invoiceId }: { invoiceId: string 
   }
 
   return <>
-    <button className="outline-button full-button" type="button" onClick={downloadProof} disabled={downloading}>
-      <Download /> {downloading ? "Menyiapkan unduhan…" : "Unduh bukti pembayaran"}
-    </button>
+    {variant === "link" ? (
+      <button className="payment-proof-link" type="button" onClick={downloadProof} disabled={downloading}>
+        <Download aria-hidden="true" /> {downloading ? "Menyiapkan unduhan…" : "Lihat bukti transfer yang diunggah"}
+      </button>
+    ) : (
+      <button className="outline-button full-button" type="button" onClick={downloadProof} disabled={downloading}>
+        <Download /> {downloading ? "Menyiapkan unduhan…" : "Unduh bukti pembayaran"}
+      </button>
+    )}
     {error && <p className="form-message error" role="alert">{error} Minta bukti pembayaran baru jika diperlukan.</p>}
   </>;
 }

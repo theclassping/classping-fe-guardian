@@ -64,6 +64,7 @@ export type Invoice = {
   rejectionReason?: string;
   verifiedAt?: string;
   proofUrl?: string;
+  invoiceNo?: string;
 };
 
 export const children: Record<ChildId, ChildProfile> = {

@@ -538,3 +538,21 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .payment-verification-live > svg { width: 12px; height: 12px; flex: 0 0 auto; }
 .payment-verification-live > button { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .payment-verification-live > button:focus-visible { outline: 3px solid rgba(170,97,27,.25); outline-offset: 2px; border-radius: 4px; }
+.payment-receipt { margin-top: 4px; padding: 20px; border: 1px solid #cfe6db; border-radius: 16px; background: linear-gradient(180deg, #f3faf6 0%, #fff 100%); }
+.payment-receipt-head { display: flex; gap: 12px; align-items: flex-start; }
+.payment-receipt-head > svg { flex: 0 0 auto; width: 26px; height: 26px; color: var(--green); }
+.payment-receipt-head .eyebrow { margin: 0 0 4px; }
+.payment-receipt-head h2 { margin: 0 0 6px; font-size: 18px; }
+.payment-receipt-head p:last-child { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.payment-receipt-rows { display: grid; gap: 0; margin: 18px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.payment-receipt-rows > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.payment-receipt-rows > div:last-child { border-bottom: 0; }
+.payment-receipt-rows dt { margin: 0; color: var(--muted); font-size: 11px; }
+.payment-receipt-rows dd { margin: 0; font-weight: 800; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.payment-receipt-rows .is-total dd { color: var(--green); font-size: 16px; }
+.payment-proof-link { display: inline-flex; align-items: center; gap: 6px; margin: 12px auto 0; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.payment-proof-link > svg { width: 14px; height: 14px; }
+.payment-proof-link:disabled { cursor: progress; opacity: .7; }
+.payment-proof-link:focus-visible { outline: 3px solid rgba(17,128,100,.2); outline-offset: 2px; border-radius: 4px; }
+.payment-receipt-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
+@media (max-width: 560px) { .payment-receipt-rows > div { flex-direction: column; gap: 3px; } .payment-receipt-rows dd { text-align: left; } }

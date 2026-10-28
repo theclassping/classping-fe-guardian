@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { decodeIdentity } from "@/lib/auth";
 import { getChild } from "@/lib/data";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
+import { primaryGuardianName } from "@/lib/receipt";
 import { invoicePaymentState, isVerifiedPayment, latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
 
@@ -106,7 +107,8 @@ export type GuardianNotification = {
   occurredAt?: string;
 };
 
-type ApiStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string; location_id?: number | string | null; class_students?: ApiClassStudent[] };
+type ApiStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string; location_id?: number | string | null; class_students?: ApiClassStudent[]; student_guardians?: ApiStudentGuardian[] };
+export type ApiStudentGuardian = { id?: number; guardian_id?: number; guardian_name?: string; relationship?: string; is_primary?: boolean };
 type ApiBranch = { id?: number | string; school?: number | string; name?: string; code?: string; address?: string; phone?: string; email?: string; location_id?: number | string };
 type ApiSchool = { id?: number; name?: string; register_number?: string; image_data?: string; description?: string; branches?: ApiBranch[] };
 type ApiAcademicYear = { id?: number | string; branch?: number | string; name?: string; is_current?: boolean };
@@ -285,6 +287,12 @@ export async function selectedStudentForRequest() {
   const currentStudentId = await sessionStudentId();
   const child = currentStudentId ? await studentForBackend(currentStudentId, fallback) : fallback;
   return { child, studentId: currentStudentId ? String(currentStudentId) : undefined };
+}
+
+/** Name of the guardian the school addresses for this student: the primary guardian, like the verification email, else the first linked one. */
+export async function primaryGuardianNameForStudent(studentId: number) {
+  const student = await get<ApiStudent>(`/api/students/${studentId}/`);
+  return primaryGuardianName(student?.student_guardians);
 }
 
 export async function studentsForGuardian(guardianId: number) {
@@ -573,6 +581,7 @@ function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment |
     rejectionReason: rejected ? payment.rejection_reason || "Bukti pembayaran belum dapat diverifikasi." : undefined,
     verifiedAt: verified ? humanizePaymentDate(payment?.verified_at || paymentDate) : "—",
     proofUrl: verified ? verifiedPaymentProofUrl(payment) : undefined,
+    invoiceNo: item.invoice_no?.trim() || undefined,
   } as Invoice;
 }
 

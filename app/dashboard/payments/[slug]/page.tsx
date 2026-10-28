@@ -5,9 +5,10 @@ import { invoices } from "@/lib/data";
 import { invoiceLookupForBackend, selectedStudentForRequest } from "@/lib/backend";
 import PaymentLookupNotice from "@/components/PaymentLookupNotice";
 import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
-import PaymentProofDownload from "@/components/PaymentProofDownload";
+import PaymentReceiptCard from "@/components/PaymentReceiptCard";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
 import { invoicePaymentState } from "@/lib/payments";
+import { paymentReceiptFor } from "@/lib/receipt";
 
 export function generateStaticParams() {
   return invoices.map(({ slug }) => ({ slug }));
@@ -33,6 +34,7 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
   }
   const { invoice } = lookup;
   const paymentState = invoicePaymentState(invoice);
+  const receipt = paymentReceiptFor(invoice, child, studentId);
   return (
     <article className="detail-page payment-detail">
       <Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link>
@@ -51,8 +53,8 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
           <PaymentReceiptDialog child={child} invoices={[invoice]} triggerLabel={invoice.rejectionReason ? "Unggah bukti pembayaran baru" : "Lanjutkan pembayaran"} />
         ) : paymentState === "submitted" ? (
           <PaymentVerificationStatus />
-        ) : invoice.proofUrl ? (
-          <PaymentProofDownload invoiceId={invoice.slug} />
+        ) : receipt ? (
+          <PaymentReceiptCard receipt={receipt} invoiceId={invoice.slug} hasUploadedProof={Boolean(invoice.proofUrl)} />
         ) : (
           <p className="form-message" role="status">Bukti pembayaran belum tersedia</p>
         )}
