@@ -534,3 +534,7 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 
 .payment-lookup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
 .payment-lookup-actions .outline-button svg { width: 16px; }
+.payment-verification-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px !important; color: #8a6a3f !important; font-size: 10px !important; }
+.payment-verification-live > svg { width: 12px; height: 12px; flex: 0 0 auto; }
+.payment-verification-live > button { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.payment-verification-live > button:focus-visible { outline: 3px solid rgba(170,97,27,.25); outline-offset: 2px; border-radius: 4px; }
