@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   CircleHelp,
+  Home,
   Mail,
   Menu,
   ReceiptText,
@@ -197,6 +198,7 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   }, []);
 
   const mainNavigation: NavItem[] = [
+    { href: "/dashboard", label: "Beranda", icon: Home, exact: true },
     { href: "/dashboard/activities", label: `Aktivitas ${child.nickname || child.firstName}`, icon: Sparkles, exact: false },
     { href: "/dashboard/payments", label: "SPP & Tagihan", icon: ReceiptText, exact: false },
   ];

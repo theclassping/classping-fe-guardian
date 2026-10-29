@@ -45,7 +45,7 @@ describe("route protection proxy", () => {
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/activities");
+    expect(response.headers.get("location")).toBe("http://localhost/dashboard");
   });
 
   it("allows authenticated dashboard requests through", async () => {

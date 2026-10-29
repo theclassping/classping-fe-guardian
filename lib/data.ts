@@ -30,6 +30,8 @@ export type Activity = {
   teacherNote: string;
   skills: string[];
   imageUrls?: string[];
+  /** ISO timestamp of the activity, used to pick the latest one. */
+  occurredAt?: string;
 };
 
 export type Assessment = {
@@ -65,6 +67,8 @@ export type Invoice = {
   verifiedAt?: string;
   proofUrl?: string;
   invoiceNo?: string;
+  /** ISO invoice date, used to pick the latest bill. */
+  invoiceDate?: string;
 };
 
 export const children: Record<ChildId, ChildProfile> = {

@@ -1,44 +1,39 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BellRing,
-  BookOpenCheck,
-  CalendarDays,
-  Camera,
-  CheckCircle2,
-  Clock3,
-  ReceiptText,
-  Sparkles,
-} from "lucide-react";
+import { cookies } from "next/headers";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, ReceiptText, Sparkles } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { activitiesFor, assessmentsFor, invoicesFor } from "@/lib/data";
-import { activitiesForBackend, invoicesForBackend, selectedStudentForRequest } from "@/lib/backend";
+import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
+import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
+import { decodeIdentity } from "@/lib/auth";
+import { activitiesFor, invoicesFor } from "@/lib/data";
+import { activitiesForBackend, guardianForBackend, invoicesForBackend, selectedStudentForRequest } from "@/lib/backend";
+import { greetingFor, latestActivity, latestOpenInvoice } from "@/lib/dashboard";
 
 function currentDate() {
-  return new Intl.DateTimeFormat("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date());
+  return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date());
 }
 
 export default async function GuardianDashboard() {
+  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
   const { child, studentId } = await selectedStudentForRequest();
-  const activities = await activitiesForBackend(child.id, activitiesFor(child.id), studentId ? Number(studentId) : undefined);
-  const assessments = assessmentsFor(child.id);
-  const invoices = await invoicesForBackend(child.id, invoicesFor(child.id), studentId ? Number(studentId) : undefined);
-  const nextInvoice = invoices?.[0];
+  const numericStudentId = studentId ? Number(studentId) : undefined;
+  const [activities, invoices, guardian] = await Promise.all([
+    activitiesForBackend(child.id, activitiesFor(child.id), numericStudentId),
+    invoicesForBackend(child.id, invoicesFor(child.id), numericStudentId),
+    identity ? guardianForBackend(identity.guardian_id, identity.id, identity.email) : Promise.resolve(null),
+  ]);
+  const guardianName = guardian?.name?.trim() || identity?.name?.trim() || "Bapak/Ibu Wali";
   const childQuery = studentId ? `?student_id=${studentId}` : `?child=${child.id}`;
-  const isJisindo = child.id === "jisindo";
+  const openBill = latestOpenInvoice(invoices);
+  const activity = latestActivity(activities);
+  const activityImage = activity?.imageUrls?.[0];
 
   return (
     <div className="dashboard-page">
       <PageHeader
         eyebrow={currentDate()}
-        title="Selamat datang, Bu Rina! 👋"
-        description={`Ikuti kegiatan, perkembangan, dan administrasi ${child.firstName} dalam satu tempat.`}
+        title={`${greetingFor()}, ${guardianName}! 👋`}
+        description={`Tagihan dan aktivitas terbaru ${child.firstName} dalam satu tempat.`}
       />
 
       <section className="child-hero panel">
@@ -51,78 +46,68 @@ export default async function GuardianDashboard() {
         <Link href={`/dashboard/activities${childQuery}`}>Lihat aktivitas <ArrowRight /></Link>
       </section>
 
-      {nextInvoice && (
-        <section className="fee-alert" aria-label="Pengingat tagihan">
-          <BellRing aria-hidden="true" />
-          <div>
-            <strong>SPP {nextInvoice.month} segera jatuh tempo</strong>
-            <p>{nextInvoice.amount} · Bayar sebelum {nextInvoice.dueDate} agar tidak terkena denda.</p>
-          </div>
-          <Link href={`/dashboard/payments/${nextInvoice.slug}${childQuery}`}>Lihat tagihan</Link>
-        </section>
-      )}
+      <section className="dashboard-content dashboard-overview">
+        <article className="fee-card panel" aria-labelledby="dashboard-bill-title">
+          <div className="section-title"><div><span>SPP & TAGIHAN</span><h2 id="dashboard-bill-title">Tagihan terbaru</h2></div><ReceiptText /></div>
+          {!invoices ? (
+            <p className="fine-note">Tagihan belum dapat dimuat saat ini. Silakan coba lagi beberapa saat.</p>
+          ) : openBill ? (
+            <>
+              <div className="next-bill">
+                <span>{openBill.invoice.feeType} · {openBill.invoice.month}</span>
+                <strong>{openBill.invoice.amount}</strong>
+                <small><Clock3 /> Jatuh tempo {openBill.invoice.dueDate}</small>
+              </div>
+              {openBill.invoice.rejectionReason && (
+                <div className="payment-rejection-message" role="alert">
+                  <p><strong>Pembayaran sebelumnya ditolak.</strong> {openBill.invoice.rejectionReason}</p>
+                </div>
+              )}
+              {openBill.state === "unpaid" ? (
+                <PaymentReceiptDialog child={child} invoices={[openBill.invoice]} triggerLabel={openBill.invoice.rejectionReason ? "Unggah bukti pembayaran baru" : "Unggah bukti pembayaran"} />
+              ) : (
+                <PaymentVerificationStatus live={false} />
+              )}
+              <Link className="card-link" href={`/dashboard/payments/${openBill.invoice.slug}${childQuery}`}>Lihat detail tagihan <ArrowRight /></Link>
+            </>
+          ) : (
+            <div className="bill-settled" role="status">
+              <CheckCircle2 aria-hidden="true" />
+              <div><strong>Semua tagihan sudah lunas</strong><p>Tidak ada tagihan {child.firstName} yang menunggu pembayaran.</p></div>
+            </div>
+          )}
+          <Link className="outline-button full-button dashboard-secondary-link" href={`/dashboard/payments${childQuery}`}>Buka riwayat pembayaran</Link>
+        </article>
 
-      <section className="summary-grid" aria-label={`Ringkasan ${child.firstName}`}>
-        <article className="summary-card panel">
-          <span className="summary-icon green"><Camera /></span>
-          <div><small>Dokumentasi terbaru</small><strong>{activities[0].photos} foto</strong><p>Hari ini</p></div>
-        </article>
-        <article className="summary-card panel">
-          <span className="summary-icon blue"><BookOpenCheck /></span>
-          <div><small>Perkembangan</small><strong>{isJisindo ? "Mulai berkembang" : "Baik"}</strong><p>Semester berjalan</p></div>
-        </article>
-        <article className="summary-card panel">
-          <span className="summary-icon orange"><ReceiptText /></span>
-          <div><small>Status SPP</small><strong className="paid-text">{isJisindo ? "2 tagihan" : "1 tagihan"}</strong><p>{isJisindo ? "Termasuk sisa Agustus" : "Perlu dibayar"}</p></div>
-        </article>
-      </section>
-
-      <section className="dashboard-content">
-        <div className="activity-feed panel">
+        <div className="activity-feed panel" aria-labelledby="dashboard-activity-title">
           <div className="section-title">
-            <div><span>HARI INI</span><h2>Aktivitas {child.firstName}</h2></div>
-            <Link href={`/dashboard/activities${childQuery}`}>Lihat semua <ArrowRight /></Link>
+            <div><span>TERBARU</span><h2 id="dashboard-activity-title">Aktivitas {child.firstName}</h2></div>
+            <Sparkles />
           </div>
-          {activities.slice(0, 2).map((activity) => (
-            <Link className="activity-feature" href={`/dashboard/activities/${activity.slug}${childQuery}`} key={activity.slug}>
-              <div className={`activity-art ${activity.tone}`}><span>{activity.emoji}</span><b>{activity.photos} foto</b></div>
+          {activity ? (
+            <Link className="activity-feature" href={`/dashboard/activities/${activity.slug}${childQuery}`}>
+              <div className={`activity-art ${activity.tone}`}>
+                {activityImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={activityImage} alt={activity.title} />
+                ) : (
+                  <span>{activity.emoji}</span>
+                )}
+                <b>{activity.photos} foto</b>
+              </div>
               <div className="activity-copy">
-                <span className="activity-date"><CalendarDays /> {activity.date} · {activity.time}</span>
+                <span className="activity-date"><CalendarDays /> {activity.date}{activity.time ? ` · ${activity.time}` : ""}</span>
                 <h3>{activity.title}</h3>
                 <p>{activity.summary}</p>
-                <span className="teacher-note"><Sparkles /> Catatan {activity.teacher}: {activity.teacherNote}</span>
+                <span className="teacher-note"><Sparkles /> Dibagikan oleh {activity.teacher}</span>
               </div>
               <ArrowRight className="activity-arrow" />
             </Link>
-          ))}
+          ) : (
+            <p className="fine-note">Belum ada aktivitas {child.firstName} yang dibagikan sekolah.</p>
+          )}
+          <Link className="primary-button full-button dashboard-secondary-link" href={`/dashboard/activities${childQuery}`}>Lihat aktivitas lainnya <ArrowRight /></Link>
         </div>
-
-        <aside className="dashboard-side">
-          <article className="assessment-card panel">
-            <div className="section-title"><div><span>PENILAIAN</span><h2>Perkembangan {child.firstName}</h2></div><span className="ready-chip">Siap dilihat</span></div>
-            <p>{assessments[0].summary}</p>
-            {assessments[0].scores.slice(0, 3).map((score) => (
-              <div className="skill-row" key={score.label}>
-                <div><span>{score.label}</span><b>{score.level}</b></div>
-                <div className="progress"><i style={{ width: `${score.value}%` }} /></div>
-              </div>
-            ))}
-            <Link className="card-link" href={`/dashboard/assessments/${assessments[0].slug}${childQuery}`}>Lihat laporan lengkap <ArrowRight /></Link>
-          </article>
-
-          <article className="fee-card panel">
-            <div className="section-title"><div><span>SPP & TAGIHAN</span><h2>Pembayaran</h2></div><CheckCircle2 /></div>
-            {nextInvoice ? (
-              <>
-                <div className="next-bill"><span>Tagihan berikutnya</span><strong>{nextInvoice.amount}</strong><small><Clock3 /> Jatuh tempo {nextInvoice.dueDate}</small></div>
-                <p className="fine-note">Denda keterlambatan: {nextInvoice.fine}</p>
-              </>
-            ) : (
-              <p className="fine-note">{invoices ? "Tidak ada tagihan yang menunggu pembayaran." : "Tagihan belum dapat dimuat saat ini."}</p>
-            )}
-            <Link className="primary-button full-button" href={`/dashboard/payments${childQuery}`}>Buka riwayat pembayaran</Link>
-          </article>
-        </aside>
       </section>
     </div>
   );

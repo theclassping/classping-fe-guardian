@@ -122,7 +122,7 @@ export async function proxy(request: NextRequest) {
   const validSession = hasValidSession(accessToken, identity);
 
   if (pathname === "/login" && validSession) {
-    return NextResponse.redirect(new URL("/activities", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   if (pathname === "/activities") {

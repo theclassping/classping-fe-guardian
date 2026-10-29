@@ -556,3 +556,14 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .payment-proof-link:focus-visible { outline: 3px solid rgba(17,128,100,.2); outline-offset: 2px; border-radius: 4px; }
 .payment-receipt-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
 @media (max-width: 560px) { .payment-receipt-rows > div { flex-direction: column; gap: 3px; } .payment-receipt-rows dd { text-align: left; } }
+.dashboard-overview { grid-template-columns: minmax(300px, .9fr) minmax(0, 1.3fr); }
+.activity-art > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bill-settled { display: flex; gap: 12px; align-items: flex-start; padding: 18px 0; color: var(--green); }
+.bill-settled > svg { flex: 0 0 auto; width: 24px; height: 24px; }
+.bill-settled strong { display: block; font-size: 13px; }
+.bill-settled p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.dashboard-secondary-link { margin-top: 14px; }
+.fee-card .payment-upload-trigger { width: 100%; margin-top: 4px; }
+.fee-card .payment-rejection-message { margin: 0 0 12px; }
+@media (max-width: 900px) { .dashboard-overview { grid-template-columns: 1fr; } }
+

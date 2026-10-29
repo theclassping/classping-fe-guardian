@@ -39,7 +39,7 @@ export default function LoginForm() {
       }
 
       const requestedPath = searchParams.get("next");
-      const target = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/activities";
+      const target = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
       router.replace(target);
       router.refresh();
     } catch {

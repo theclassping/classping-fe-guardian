@@ -456,6 +456,7 @@ export async function activitiesForBackend(childId: ChildId, fallback: Activity[
       teacherNote: "Informasi aktivitas tersedia dari sekolah.",
       skills: [],
       imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
+      occurredAt: item.activity_date || item.updated_at || item.created_at,
       };
     }));
   return mapped;
@@ -582,6 +583,7 @@ function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment |
     verifiedAt: verified ? humanizePaymentDate(payment?.verified_at || paymentDate) : "—",
     proofUrl: verified ? verifiedPaymentProofUrl(payment) : undefined,
     invoiceNo: item.invoice_no?.trim() || undefined,
+    invoiceDate: item.invoice_date || item.created_at,
   } as Invoice;
 }
 
