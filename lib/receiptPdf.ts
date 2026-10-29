@@ -1,4 +1,6 @@
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import type { PaymentReceipt } from "@/lib/receipt";
 
 const green = rgb(0.09, 0.47, 0.37);
@@ -37,6 +39,16 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number) {
 
 export type ReceiptPdfOptions = { guardianName?: string; issuedAt?: Date };
 
+// The literal path keeps the file in the deployment bundle (Next.js traces it).
+const logoFile = path.join(process.cwd(), "assets", "classping-logo.png");
+let logoBytes: Promise<Uint8Array | null> | undefined;
+
+/** The ClassPing wordmark, read once per process; `null` when the asset is missing. */
+function loadLogo() {
+  logoBytes ??= readFile(logoFile).then((bytes) => new Uint8Array(bytes)).catch(() => null);
+  return logoBytes;
+}
+
 export async function buildReceiptPdf(receipt: PaymentReceipt, options: ReceiptPdfOptions = {}) {
   const doc = await PDFDocument.create();
   doc.setTitle(`Bukti verifikasi pembayaran ${pdfSafeText(receipt.reference)}`);
@@ -52,7 +64,15 @@ export async function buildReceiptPdf(receipt: PaymentReceipt, options: ReceiptP
     page.drawText(pdfSafeText(text), { x, y, size, font, color });
   };
 
-  draw("classping", margin, 22, bold, green);
+  const logo = await loadLogo();
+  if (logo) {
+    const image = await doc.embedPng(logo);
+    const logoHeight = 40;
+    const { width: logoWidth } = image.scale(logoHeight / image.height);
+    page.drawImage(image, { x: margin - 7, y: y - 16, width: logoWidth, height: logoHeight });
+  } else {
+    draw("classping", margin, 22, bold, green);
+  }
   y -= 44;
   draw("PEMBAYARAN BERHASIL", margin, 9, bold, green);
   y -= 26;
@@ -65,12 +85,13 @@ export async function buildReceiptPdf(receipt: PaymentReceipt, options: ReceiptP
     y -= 16;
   }
 
+  // Box padding: 16pt above the title's cap height and below the subtitle's descender.
   y -= 24;
-  drawBox(page, margin, y - 26, width, 54, tint);
+  drawBox(page, margin, y - 36, width, 60, tint);
   draw("Pembayaran berhasil", margin + 16, 12, bold, green);
   y -= 18;
   draw("Pembayaran telah diterima dan dicatat sebagai pembayaran yang telah selesai.", margin + 16, 10, regular, muted);
-  y -= 46;
+  y -= 38; // 20pt between the box and the table
 
   const rows: Array<[string, string, boolean]> = [
     ["Nomor tagihan", receipt.reference, false],
@@ -97,7 +118,7 @@ export async function buildReceiptPdf(receipt: PaymentReceipt, options: ReceiptP
     if (!highlight) page.drawLine({ start: { x: margin + 16, y: y - 8 }, end: { x: margin + width - 16, y: y - 8 }, thickness: 0.5, color: line });
   }
 
-  y -= 50;
+  y -= 62; // 20pt between the table and the closing box
   const note = wrap("Tidak ada tindakan lebih lanjut yang diperlukan untuk pembayaran ini. Simpan dokumen ini sebagai bukti konfirmasi pembayaran.", regular, 10, width - 32);
   drawBox(page, margin, y - 18 - note.length * 14 - 2, width, 18 + note.length * 14 + 30, tint);
   draw("Pembayaran selesai", margin + 16, 11, bold, green);

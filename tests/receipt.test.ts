@@ -81,4 +81,11 @@ describe("verification receipt PDF", () => {
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
     expect(bytes.byteLength).toBeGreaterThan(1500);
   });
+
+  it("embeds the ClassPing logo image in the receipt header", async () => {
+    const bytes = await buildReceiptPdf(paymentReceiptFor(paidInvoice, child)!, { guardianName: "Ayah Tesla" });
+    const text = Buffer.from(bytes).toString("latin1");
+    expect(text).toContain("/Subtype /Image");
+    expect(text).not.toContain("classping)"); // the text fallback is not drawn when the image is present
+  });
 });
