@@ -1,19 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Activity, ChildProfile } from "@/lib/data";
+import {
+  filterActivitiesByDate,
+  formatDayKey,
+  formatSchoolWeek,
+  isDayKey,
+  shiftDay,
+  todayKey,
+  type ActivityDateFilter,
+} from "@/lib/activityFilter";
+
+type FilterMode = ActivityDateFilter["mode"];
 
 export default function ActivityList({ items, child }: { items: readonly Activity[]; child: ChildProfile }) {
   const [query, setQuery] = useState("");
   const [slides, setSlides] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
+  const [mode, setMode] = useState<FilterMode>("all");
+  const [date, setDate] = useState(() => todayKey());
   const pageSize = 6;
-  const filtered = useMemo(() => items.filter((item) => `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
+  const filtered = useMemo(() => {
+    const dateFilter: ActivityDateFilter = mode === "all" ? { mode } : { mode, date };
+    return filterActivitiesByDate(items, dateFilter).filter((item) => `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase()));
+  }, [items, query, mode, date]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visibleItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   function updateQuery(value: string) { setQuery(value); setPage(1); }
+  function updateMode(value: FilterMode) { setMode(value); setPage(1); }
+  function updateDate(value: string) { if (isDayKey(value)) { setDate(value); setPage(1); } }
+  const step = mode === "week" ? 7 : 1;
+  const selectionLabel = mode === "day" ? formatDayKey(date) : mode === "week" ? formatSchoolWeek(date) : "";
+  const emptyCopy = mode === "all" ? "Coba gunakan kata kunci yang berbeda." : query ? `Tidak ada aktivitas yang cocok pada ${selectionLabel}.` : `Belum ada aktivitas yang dibagikan pada ${selectionLabel}.`;
 
   function downloadActivity(activity: Activity, activeImage?: string) {
     const slide = slides[activity.slug] || 0;
@@ -39,7 +60,36 @@ export default function ActivityList({ items, child }: { items: readonly Activit
 
   return (
     <>
-      <label className="list-search"><Search /><input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
+      <div className="activity-filters">
+        <label className="list-search"><Search /><input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
+        <div className="activity-date-filter" role="group" aria-label="Filter tanggal aktivitas">
+          <div className="segmented" role="radiogroup" aria-label="Rentang waktu">
+            {([["all", "Semua"], ["day", "Per hari"], ["week", "Per minggu"]] as const).map(([value, label]) => (
+              <button key={value} type="button" role="radio" aria-checked={mode === value} className={mode === value ? "active" : ""} onClick={() => updateMode(value)}>{label}</button>
+            ))}
+          </div>
+          {mode !== "all" && (
+            <div className="date-picker">
+              <button type="button" aria-label={mode === "week" ? "Minggu sebelumnya" : "Hari sebelumnya"} onClick={() => updateDate(shiftDay(date, -step))}><ChevronLeft /></button>
+              <label>
+                <CalendarDays aria-hidden="true" />
+                <span className="sr-only">{mode === "week" ? "Pilih tanggal dalam minggu" : "Pilih tanggal"}</span>
+                <input type="date" value={date} onChange={(event) => updateDate(event.target.value)} />
+              </label>
+              <button type="button" aria-label={mode === "week" ? "Minggu berikutnya" : "Hari berikutnya"} onClick={() => updateDate(shiftDay(date, step))}><ChevronRight /></button>
+              <button type="button" className="date-reset" onClick={() => { setDate(todayKey()); setPage(1); }}>Hari ini</button>
+            </div>
+          )}
+        </div>
+        {mode !== "all" && (
+          <p className="activity-filter-summary" role="status">
+            <strong>{selectionLabel}</strong>
+            {mode === "week" && <span> · Senin sampai Jumat</span>}
+            <span> · {filtered.length} aktivitas</span>
+            <button type="button" onClick={() => updateMode("all")}><X aria-hidden="true" /> Tampilkan semua</button>
+          </p>
+        )}
+      </div>
       <div className="guardian-social-feed">
         {visibleItems.map((activity) => {
           const slide = slides[activity.slug] || 0;
@@ -65,7 +115,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
           );
         })}
       </div>
-      {!filtered.length && <div className="empty-state panel"><span>🔎</span><h2>Aktivitas tidak ditemukan</h2><p>Coba gunakan kata kunci yang berbeda.</p></div>}
+      {!filtered.length && <div className="empty-state panel"><span>🔎</span><h2>Aktivitas tidak ditemukan</h2><p>{emptyCopy}</p></div>}
       {filtered.length > pageSize && <nav className="pagination" aria-label="Pagination aktivitas"><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>Sebelumnya</button><span>Halaman {page} dari {pageCount}</span><button type="button" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={page === pageCount}>Berikutnya</button></nav>}
     </>
   );

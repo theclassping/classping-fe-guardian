@@ -567,3 +567,34 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .fee-card .payment-rejection-message { margin: 0 0 12px; }
 @media (max-width: 900px) { .dashboard-overview { grid-template-columns: 1fr; } }
 
+/* Activity date filter */
+.activity-filters { display: flex; flex-direction: column; gap: 12px; }
+.content-page:has(.guardian-social-feed) > .activity-filters { align-self: center; width: min(860px, 100%); }
+.activity-filters .list-search { width: 100%; }
+.activity-date-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.segmented { display: inline-flex; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.segmented button { padding: 8px 14px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: 700 13px var(--font-dm-sans), sans-serif; cursor: pointer; }
+.segmented button.active { background: #e5f5ee; color: var(--green); }
+.segmented button:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.date-picker { display: inline-flex; align-items: center; gap: 6px; }
+.date-picker label { position: relative; display: inline-flex; align-items: center; }
+.date-picker label svg { position: absolute; left: 12px; width: 16px; color: #8d9993; pointer-events: none; }
+.date-picker input { height: 40px; padding: 0 12px 0 36px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font: 600 13px var(--font-dm-sans), sans-serif; }
+.date-picker input:focus { outline: 0; border-color: var(--green); box-shadow: 0 0 0 4px rgba(17,128,100,.09); }
+.date-picker > button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--green); cursor: pointer; }
+.date-picker > button svg { width: 16px; }
+.date-picker > button:hover { background: #edf8f4; }
+.date-picker > .date-reset { width: auto; padding: 0 12px; font: 700 12px var(--font-dm-sans), sans-serif; }
+.activity-filter-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; color: var(--muted); font-size: 13px; }
+.activity-filter-summary strong { color: var(--ink); }
+.activity-filter-summary button { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--green); font: 700 12px var(--font-dm-sans), sans-serif; cursor: pointer; }
+.activity-filter-summary button svg { width: 14px; }
+.activity-filter-summary button:hover { background: #edf8f4; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 600px) {
+  .activity-date-filter { flex-direction: column; align-items: stretch; }
+  .segmented { width: 100%; }
+  .segmented button { flex: 1; }
+  .date-picker label { flex: 1; }
+  .date-picker input { width: 100%; }
+}
