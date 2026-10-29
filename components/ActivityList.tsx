@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { Activity, ChildProfile } from "@/lib/data";
 import {
@@ -11,27 +12,40 @@ import {
   isDayKey,
   shiftDay,
   todayKey,
-  type ActivityDateFilter,
 } from "@/lib/activityFilter";
-
-type FilterMode = ActivityDateFilter["mode"];
+import {
+  ACTIVITY_PAGE_SIZE,
+  applyActivityListState,
+  dateFilterOf,
+  parseActivityListState,
+  type ActivityListState,
+} from "@/lib/activityListState";
 
 export default function ActivityList({ items, child }: { items: readonly Activity[]; child: ChildProfile }) {
-  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [slides, setSlides] = useState<Record<string, number>>({});
-  const [page, setPage] = useState(1);
-  const [mode, setMode] = useState<FilterMode>("all");
-  const [date, setDate] = useState(() => todayKey());
-  const pageSize = 6;
-  const filtered = useMemo(() => {
-    const dateFilter: ActivityDateFilter = mode === "all" ? { mode } : { mode, date };
-    return filterActivitiesByDate(items, dateFilter).filter((item) => `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase()));
-  }, [items, query, mode, date]);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const visibleItems = filtered.slice((page - 1) * pageSize, page * pageSize);
-  function updateQuery(value: string) { setQuery(value); setPage(1); }
-  function updateMode(value: FilterMode) { setMode(value); setPage(1); }
-  function updateDate(value: string) { if (isDayKey(value)) { setDate(value); setPage(1); } }
+  // The filter, search and how many cards are loaded live in the URL, so the
+  // back button from a detail page (or a shared link) restores the same view.
+  const state = useMemo(() => parseActivityListState(searchParams), [searchParams]);
+  const { mode, date, shown, query } = state;
+  const filtered = useMemo(
+    () => filterActivitiesByDate(items, dateFilterOf(state)).filter((item) => `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase())),
+    [items, state, query],
+  );
+  const visibleItems = filtered.slice(0, shown);
+  const remaining = filtered.length - visibleItems.length;
+
+  function update(changes: Partial<ActivityListState>) {
+    // Any change to what is listed starts again from the first page of cards.
+    const next = { ...state, shown: ACTIVITY_PAGE_SIZE, ...changes };
+    router.replace(`${pathname}?${applyActivityListState(new URLSearchParams(searchParams), next).toString()}`, { scroll: false });
+  }
+  const setQuery = (value: string) => update({ query: value });
+  const updateMode = (value: ActivityListState["mode"]) => update({ mode: value });
+  const updateDate = (value: string) => { if (isDayKey(value)) update({ date: value }); };
+  const loadMore = () => update({ shown: shown + ACTIVITY_PAGE_SIZE });
   const step = mode === "week" ? 7 : 1;
   const selectionLabel = mode === "day" ? formatDayKey(date) : mode === "week" ? formatSchoolWeek(date) : "";
   const emptyCopy = mode === "all" ? "Coba gunakan kata kunci yang berbeda." : query ? `Tidak ada aktivitas yang cocok pada ${selectionLabel}.` : `Belum ada aktivitas yang dibagikan pada ${selectionLabel}.`;
@@ -61,7 +75,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
   return (
     <>
       <div className="activity-filters">
-        <label className="list-search"><Search /><input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
+        <label className="list-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
         <div className="activity-date-filter" role="group" aria-label="Filter tanggal aktivitas">
           <div className="segmented" role="radiogroup" aria-label="Rentang waktu">
             {([["all", "Semua"], ["day", "Per hari"], ["week", "Per minggu"]] as const).map(([value, label]) => (
@@ -77,7 +91,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
                 <input type="date" value={date} onChange={(event) => updateDate(event.target.value)} />
               </label>
               <button type="button" aria-label={mode === "week" ? "Minggu berikutnya" : "Hari berikutnya"} onClick={() => updateDate(shiftDay(date, step))}><ChevronRight /></button>
-              <button type="button" className="date-reset" onClick={() => { setDate(todayKey()); setPage(1); }}>Hari ini</button>
+              <button type="button" className="date-reset" onClick={() => updateDate(todayKey())}>Hari ini</button>
             </div>
           )}
         </div>
@@ -116,7 +130,12 @@ export default function ActivityList({ items, child }: { items: readonly Activit
         })}
       </div>
       {!filtered.length && <div className="empty-state panel"><span>🔎</span><h2>Aktivitas tidak ditemukan</h2><p>{emptyCopy}</p></div>}
-      {filtered.length > pageSize && <nav className="pagination" aria-label="Pagination aktivitas"><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>Sebelumnya</button><span>Halaman {page} dari {pageCount}</span><button type="button" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={page === pageCount}>Berikutnya</button></nav>}
+      {filtered.length > ACTIVITY_PAGE_SIZE && (
+        <div className="load-more" role="status">
+          <span>Menampilkan {visibleItems.length} dari {filtered.length} aktivitas</span>
+          {remaining > 0 && <button type="button" className="outline-button" onClick={loadMore}>Tampilkan lebih banyak ({Math.min(remaining, ACTIVITY_PAGE_SIZE)} lagi)</button>}
+        </div>
+      )}
     </>
   );
 }

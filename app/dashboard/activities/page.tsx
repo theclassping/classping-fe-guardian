@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import ActivityList from "@/components/ActivityList";
 import PageHeader from "@/components/PageHeader";
 import { activitiesFor, getChild } from "@/lib/data";
@@ -11,7 +12,9 @@ export default async function ActivitiesPage() {
   return (
     <div className="content-page">
       <PageHeader eyebrow="DOKUMENTASI SEKOLAH" title={`Aktivitas ${child.name}`} description="Foto dan cerita kegiatan yang dibagikan guru khusus untuk anak Anda." />
-      <ActivityList items={activities} child={child} />
+      <Suspense fallback={<p className="fine-note">Memuat aktivitas...</p>}>
+        <ActivityList items={activities} child={child} />
+      </Suspense>
     </div>
   );
 }
