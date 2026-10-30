@@ -578,10 +578,34 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .segmented button.active { background: #e5f5ee; color: var(--green); }
 .segmented button:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
 .date-picker { display: inline-flex; align-items: center; gap: 6px; }
-.date-picker label { position: relative; display: inline-flex; align-items: center; }
-.date-picker label svg { position: absolute; left: 12px; width: 16px; color: #8d9993; pointer-events: none; }
-.date-picker input { height: 40px; padding: 0 12px 0 36px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font: 600 13px var(--font-dm-sans), sans-serif; }
-.date-picker input:focus { outline: 0; border-color: var(--green); box-shadow: 0 0 0 4px rgba(17,128,100,.09); }
+.date-picker-field { position: relative; }
+.date-picker-trigger { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font: 600 13px var(--font-dm-sans), sans-serif; cursor: pointer; }
+.date-picker-trigger svg { width: 16px; color: var(--green); }
+.date-picker-trigger:hover { border-color: #bad9ce; }
+.date-picker-trigger:focus-visible, .date-picker-trigger[aria-expanded="true"] { outline: 0; border-color: var(--green); box-shadow: 0 0 0 4px rgba(17,128,100,.09); }
+.date-popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: 308px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(21,35,30,.14); }
+.date-popover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.date-popover-head strong { font: 800 14px var(--font-plus-jakarta), sans-serif; text-transform: capitalize; }
+.date-popover-head button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--green); cursor: pointer; }
+.date-popover-head button:hover { background: #edf8f4; }
+.date-popover-head button svg { width: 16px; }
+.date-popover-hint { margin: 0 0 8px; color: var(--muted); font-size: 11px; }
+.calendar { width: 100%; border-collapse: separate; border-spacing: 0 3px; table-layout: fixed; }
+.calendar th { padding: 4px 0; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
+.calendar td { padding: 0; text-align: center; }
+.calendar td button { width: 100%; height: 36px; border: 0; background: transparent; color: var(--ink); font: 600 13px var(--font-dm-sans), sans-serif; cursor: pointer; border-radius: 10px; }
+.calendar td button:hover { background: #edf8f4; }
+.calendar td button:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.calendar td.outside button { color: #b3bdb8; }
+.calendar td.weekend button { color: #b3bdb8; }
+.calendar td.today button { box-shadow: inset 0 0 0 1.5px #bad9ce; }
+.calendar td.preview button { background: #e5f5ee; border-radius: 0; }
+.calendar td.preview:first-child button, .calendar td.preview + td:not(.preview) { border-radius: 10px; }
+.calendar td.selected button { background: #d5efe4; color: var(--green-dark); border-radius: 0; }
+.calendar td.range-start button { border-radius: 10px 0 0 10px; }
+.calendar td.range-end button { border-radius: 0 10px 10px 0; }
+.calendar td.range-start.range-end button { border-radius: 10px; }
+.calendar td.selected button[aria-pressed="true"] { background: var(--green); color: #fff; box-shadow: none; }
 .date-picker > button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--green); cursor: pointer; }
 .date-picker > button svg { width: 16px; }
 .date-picker > button:hover { background: #edf8f4; }
@@ -596,6 +620,7 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
   .activity-date-filter { flex-direction: column; align-items: stretch; }
   .segmented { width: 100%; }
   .segmented button { flex: 1; }
-  .date-picker label { flex: 1; }
-  .date-picker input { width: 100%; }
+  .date-picker-field { flex: 1; }
+  .date-picker-trigger { width: 100%; }
+  .date-popover { left: 50%; transform: translateX(-50%); width: min(308px, calc(100vw - 32px)); }
 }

@@ -94,3 +94,44 @@ export function formatSchoolWeek(key: DayKey) {
   const { start, end } = schoolWeekOf(key);
   return `${shortFormatter.format(new Date(toUtc(start)))} – ${shortFormatter.format(new Date(toUtc(end)))} ${end.slice(0, 4)}`;
 }
+
+/** "YYYY-MM" of a day. */
+export function monthKeyOf(key: DayKey) {
+  return key.slice(0, 7);
+}
+
+/** The first day of the month `months` away from the given day's month. */
+export function shiftMonth(key: DayKey, months: number): DayKey {
+  const [year, month] = key.split("-").map(Number);
+  return fromUtc(Date.UTC(year, month - 1 + months, 1));
+}
+
+export function isWeekend(key: DayKey) {
+  const weekday = new Date(toUtc(key)).getUTCDay();
+  return weekday === 0 || weekday === 6;
+}
+
+/**
+ * The calendar grid for the month containing `key`: full Monday-to-Sunday
+ * rows from the week of the 1st through the week of the last day.
+ */
+export function calendarWeeks(key: DayKey): DayKey[][] {
+  const first = shiftMonth(key, 0);
+  const last = shiftDay(shiftMonth(key, 1), -1);
+  const weeks: DayKey[][] = [];
+  for (let cursor = schoolWeekOf(first).start; cursor <= last; cursor = shiftDay(cursor, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, index) => shiftDay(cursor, index)));
+  }
+  return weeks;
+}
+
+const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" });
+
+export function formatMonth(key: DayKey) {
+  return monthFormatter.format(new Date(toUtc(key)));
+}
+
+/** Day of month without a leading zero, for calendar cells. */
+export function dayOfMonth(key: DayKey) {
+  return Number(key.slice(8, 10));
+}

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import ActivityDatePicker from "@/components/ActivityDatePicker";
 import type { Activity, ChildProfile } from "@/lib/data";
 import {
   filterActivitiesByDate,
@@ -85,11 +86,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
           {mode !== "all" && (
             <div className="date-picker">
               <button type="button" aria-label={mode === "week" ? "Minggu sebelumnya" : "Hari sebelumnya"} onClick={() => updateDate(shiftDay(date, -step))}><ChevronLeft /></button>
-              <label>
-                <CalendarDays aria-hidden="true" />
-                <span className="sr-only">{mode === "week" ? "Pilih tanggal dalam minggu" : "Pilih tanggal"}</span>
-                <input type="date" value={date} onChange={(event) => updateDate(event.target.value)} />
-              </label>
+              <ActivityDatePicker mode={mode} value={date} onChange={updateDate} />
               <button type="button" aria-label={mode === "week" ? "Minggu berikutnya" : "Hari berikutnya"} onClick={() => updateDate(shiftDay(date, step))}><ChevronRight /></button>
               <button type="button" className="date-reset" onClick={() => updateDate(todayKey())}>Hari ini</button>
             </div>

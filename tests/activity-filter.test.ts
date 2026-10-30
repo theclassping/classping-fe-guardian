@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   activityDayKey,
+  calendarWeeks,
   dayKeyOf,
+  dayOfMonth,
+  formatMonth,
+  isWeekend,
+  monthKeyOf,
+  shiftMonth,
   filterActivitiesByDate,
   formatDayKey,
   formatSchoolWeek,
@@ -76,5 +82,29 @@ describe("filtering activities by date", () => {
 
   it("leaves undated activities out of a day or week selection", () => {
     expect(filterActivitiesByDate(items, { mode: "week", date: "2026-10-28" }).some((item) => item.title === "undated")).toBe(false);
+  });
+});
+
+describe("calendar month grid", () => {
+  it("covers October 2026 in Monday-to-Sunday rows", () => {
+    const weeks = calendarWeeks("2026-10-20");
+    expect(weeks[0][0]).toBe("2026-09-28"); // 1 Oct 2026 is a Thursday
+    expect(weeks[0][3]).toBe("2026-10-01");
+    expect(weeks.at(-1)?.at(-1)).toBe("2026-11-01"); // 31 Oct is a Saturday
+    expect(weeks).toHaveLength(5);
+    expect(weeks.every((week) => week.length === 7)).toBe(true);
+  });
+
+  it("shifts months and keeps the first day", () => {
+    expect(shiftMonth("2026-10-20", 1)).toBe("2026-11-01");
+    expect(shiftMonth("2026-01-15", -1)).toBe("2025-12-01");
+    expect(monthKeyOf("2026-10-20")).toBe("2026-10");
+  });
+
+  it("labels and classifies days", () => {
+    expect(formatMonth("2026-10-20")).toBe("Oktober 2026");
+    expect(dayOfMonth("2026-10-05")).toBe(5);
+    expect(isWeekend("2026-10-17")).toBe(true); // Saturday
+    expect(isWeekend("2026-10-20")).toBe(false);
   });
 });
