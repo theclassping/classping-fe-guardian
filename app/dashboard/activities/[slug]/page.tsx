@@ -32,7 +32,7 @@ export default async function ActivityDetail({ params }: { params: Promise<{ slu
       </section>
       <section className="detail-grid">
         <div className="note-card panel"><span className="note-avatar">{activity.teacher.slice(3, 5)}</span><div><small>CATATAN {activity.teacher.toUpperCase()}</small><h2>Perkembangan yang terlihat</h2><p>{activity.teacherNote}</p></div><Sparkles /></div>
-        <div className="privacy-card panel"><LockKeyhole /><div><h2>Privasi anak terjaga</h2><p>Dokumentasi ini hanya tampil karena {child.nickname || child.firstName} ditandai oleh pihak sekolah. Wali murid lain tidak dapat melihatnya.</p></div></div>
+        <div className="privacy-card panel"><LockKeyhole /><div><h2>Privasi anak terjaga</h2><p>Foto individual dan catatan {child.nickname || child.firstName} hanya dapat dilihat oleh wali yang terhubung. Foto bersama dibagikan kepada wali peserta kegiatan.</p></div></div>
       </section>
     </article>
   );

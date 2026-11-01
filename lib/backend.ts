@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { photosForStudent, studentRemark, type StudentPhoto } from "@/lib/activityVisibility";
 import { decodeIdentity } from "@/lib/auth";
 import { getChild } from "@/lib/data";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
@@ -22,6 +23,7 @@ type ApiActivity = {
   activity_students?: ApiStudentLink[];
   students?: ApiStudentLink[];
   is_publish?: boolean;
+  student_remarks?: { student_id: number | string; remark: string }[];
 };
 
 type ApiClassTeacher = {
@@ -46,7 +48,7 @@ type ApiClassStudent = {
 type ApiClass = { id?: number | string; name?: string; branch?: number | string; branch_name?: string; academic_year?: number | string; academic_year_name?: string };
 
 type ApiStudentLink = { id?: number | string; student_id?: number | string; student?: number | string };
-type ApiActivityImage = { image_url?: string; student_id?: number | string | null; student_ids?: (number | string)[] };
+type ApiActivityImage = StudentPhoto;
 
 function idsFromLinks(links: ApiStudentLink[] = []) {
   return links.map((link) => Number(link.student_id ?? link.student ?? link.id)).filter((id) => Number.isInteger(id) && id > 0);
@@ -68,11 +70,7 @@ function activityMatchesStudent(activity: ApiActivity, studentId: number) {
   return participantIds.includes(studentId) || taggedImages.some((image) => imageStudentIds(image).includes(studentId));
 }
 
-function imagesForStudent(images: ApiActivityImage[] = [], studentId?: number) {
-  if (!studentId) return images;
-  const hasTagMetadata = images.some((image) => image.student_id != null || Array.isArray(image.student_ids));
-  return hasTagMetadata ? images.filter((image) => imageStudentIds(image).includes(studentId)) : images;
-}
+const imagesForStudent = photosForStudent;
 
 type ApiInvoice = {
   id?: number;
@@ -453,7 +451,7 @@ export async function activitiesForBackend(childId: ChildId, fallback: Activity[
       summary: item.description || "Catatan aktivitas dari sekolah.",
       description: item.description || "Catatan aktivitas dari sekolah.",
       teacher: await teacherForActivity(item, teacherCache),
-      teacherNote: "Informasi aktivitas tersedia dari sekolah.",
+      teacherNote: studentRemark(item.student_remarks, studentId) || "Informasi aktivitas tersedia dari sekolah.",
       skills: [],
       imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
       occurredAt: item.activity_date || item.updated_at || item.created_at,
@@ -480,7 +478,7 @@ export async function activityForBackend(slug: string, childId: ChildId, fallbac
     summary: item.description || fallback.summary,
     description: item.description || fallback.description,
     teacher,
-    teacherNote: item.description || fallback.teacherNote,
+    teacherNote: studentRemark(item.student_remarks, studentId) || item.description || "Belum ada catatan khusus dari guru.",
     skills: [],
     imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
   } as Activity;
