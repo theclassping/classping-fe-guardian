@@ -135,7 +135,7 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .guardian-help-card button:hover { border-color: var(--green); background: #E3F1EE; }
 .guardian-help-card button svg { width: 14px; }
 .logout-button { min-height: 45px; display: flex; align-items: center; gap: 12px; margin-top: 9px; padding: 0 13px; border: 0; color: #6E5F53; background: transparent; font-weight: 700; cursor: pointer; }
-.portal-page { min-height: 100svh; margin-left: var(--sidebar); }
+.portal-page { min-height: 100svh; margin-left: var(--sidebar); overflow-x: clip; }
 .topbar { position: sticky; top: 0; z-index: 30; height: 84px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(24px, 4vw, 58px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.94); backdrop-filter: blur(15px); }
 .mobile-menu { display: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 .school-identity { display: flex; align-items: center; gap: 13px; text-decoration: none; }
@@ -640,3 +640,152 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
   .date-picker-trigger { width: 100%; }
   .date-popover { left: 50%; transform: translateX(-50%); width: min(308px, calc(100vw - 32px)); }
 }
+
+/* Beranda wali murid: dreamy and playful, grown-up in tone. Brand tokens only. */
+.gd { position: relative; gap: 24px; }
+.gd::before, .gd::after { content: ""; position: absolute; z-index: -1; border-radius: 50%; filter: blur(44px); opacity: .85; pointer-events: none; }
+.gd::before { width: 420px; height: 420px; top: -140px; right: -120px; background: var(--sun-soft); }
+.gd::after { width: 380px; height: 380px; top: 420px; left: -160px; background: var(--sky-soft); }
+.gd-welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.gd-welcome h1 { margin: 0 0 8px; font: 800 clamp(26px, 2.8vw, 38px)/1.15 var(--font-display), sans-serif; letter-spacing: -0.01em; }
+.gd-welcome h1 span { display: inline-block; transform-origin: 70% 70%; animation: gd-wave 2.4s ease 1; }
+@keyframes gd-wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(16deg); } 20%, 40% { transform: rotate(-8deg); } }
+.gd-welcome > div > p:last-child { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.gd-child { display: grid; grid-template-columns: 54px minmax(0, 1fr) 18px; align-items: center; gap: 14px; flex: 0 0 auto; max-width: 340px; padding: 12px 16px 12px 12px; border-radius: 22px; color: inherit; text-decoration: none; background: linear-gradient(120deg, #fff 55%, var(--mint)); transition: transform .18s, box-shadow .18s; }
+.gd-child:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.gd-child-avatar { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 17px; color: var(--green); background: var(--mint); font: 800 17px var(--font-display), sans-serif; }
+.gd-child-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gd-child-copy strong { font: 800 15px var(--font-display), sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-child-copy small { color: var(--muted); font-size: 11px; }
+.gd-child > svg { width: 18px; color: var(--ink-muted); }
+
+.gd-grid { display: grid; grid-template-columns: minmax(300px, .9fr) minmax(0, 1.3fr); gap: 22px; align-items: start; }
+.gd-bill, .gd-report { padding: 24px; border-radius: 24px; }
+.gd-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 6px; }
+.gd-kicker { display: block; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.gd-card-head h2 { margin: 6px 0 0; font: 800 20px/1.25 var(--font-display), sans-serif; }
+.gd-card-icon { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 14px; color: var(--green); background: var(--mint); }
+.gd-card-icon.sun { color: var(--warning); background: var(--sun-soft); }
+.gd-card-icon svg { width: 20px; height: 20px; }
+
+.gd-bill.due { background: linear-gradient(160deg, #fff 60%, var(--sun-soft)); border-color: #F3DDA8; }
+.gd-bill.due .gd-card-icon { color: var(--warning); background: var(--sun-soft); }
+.gd-bill.waiting { background: linear-gradient(160deg, #fff 60%, var(--sky-soft)); }
+.gd-bill.settled { background: linear-gradient(160deg, #fff 60%, var(--mint)); }
+.gd-bill-amount { padding: 14px 0 16px; }
+.gd-bill-amount span, .gd-bill-amount strong, .gd-bill-amount small { display: block; }
+.gd-bill-amount span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.gd-bill-amount strong { margin: 6px 0 8px; font: 800 clamp(28px, 3vw, 36px)/1.1 var(--font-display), sans-serif; letter-spacing: -0.01em; }
+.gd-bill-amount small { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; color: var(--warning); background: var(--sun-soft); font-size: 11px; font-weight: 700; }
+.gd-bill-amount small svg { width: 14px; height: 14px; }
+.gd-bill .payment-upload-trigger { min-height: 54px; border-radius: 999px; font: 800 15px var(--font-display), sans-serif; }
+.gd-bill-hint { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.gd-bill-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.gd-bill-links a { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; color: var(--green); font-size: 13px; font-weight: 800; text-decoration: none; }
+.gd-bill-links a:hover { text-decoration: underline; }
+.gd-bill-links a svg { width: 15px; height: 15px; }
+.gd-settled { padding: 16px 0; }
+
+.gd-feature { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px 0 6px; color: inherit; text-decoration: none; }
+.gd-feature-art { position: relative; min-height: 220px; display: grid; place-items: center; overflow: hidden; border-radius: 20px; }
+.gd-feature-art.peach { background: linear-gradient(135deg, var(--sun), var(--peach)); }
+.gd-feature-art.mint { background: linear-gradient(135deg, var(--brand), var(--green)); }
+.gd-feature-art.lavender, .gd-feature-art.blue { background: linear-gradient(135deg, var(--sky-soft), var(--sky)); }
+.gd-feature-art::after { content: ""; position: absolute; width: 140px; height: 140px; right: -45px; top: -45px; border: 22px solid rgba(255,255,255,.22); border-radius: 50%; }
+.gd-feature-art > span { font-size: 64px; }
+.gd-feature-art > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+.gd-feature:hover .gd-feature-art > img { transform: scale(1.03); }
+.gd-feature-art > b { position: absolute; left: 12px; bottom: 12px; z-index: 1; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; color: #fff; background: rgba(58,47,39,.72); font-size: 10px; font-weight: 700; }
+.gd-feature-art > b svg { width: 13px; height: 13px; }
+.gd-feature-copy h3 { margin: 8px 0 6px; font: 800 20px/1.25 var(--font-display), sans-serif; }
+.gd-feature-copy > p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.gd-feature .teacher-note { font-size: 11px; }
+.gd-feature-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; color: var(--green); font-size: 13px; font-weight: 800; }
+.gd-feature-cta svg { width: 16px; height: 16px; }
+.gd-more { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.gd-more li a { display: grid; grid-template-columns: 50px minmax(0, 1fr) 18px; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.gd-more li a:hover strong { color: var(--green); }
+.gd-more-thumb { width: 50px; height: 50px; display: grid; place-items: center; overflow: hidden; border-radius: 14px; font-size: 22px; }
+.gd-more-thumb.peach { background: var(--peach-soft); } .gd-more-thumb.mint { background: var(--mint); } .gd-more-thumb.lavender, .gd-more-thumb.blue { background: var(--sky-soft); }
+.gd-more-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.gd-more-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gd-more-copy strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-more-copy small { color: var(--muted); font-size: 11px; }
+.gd-more li a > svg { width: 16px; color: var(--ink-muted); }
+.gd-empty { padding: 30px 16px; text-align: center; border-radius: 18px; background: var(--canvas); }
+.gd-empty > span { display: block; font-size: 34px; margin-bottom: 6px; }
+.gd-empty strong { display: block; font: 800 16px var(--font-display), sans-serif; }
+.gd-empty p { margin: 4px auto 0; max-width: 40ch; color: var(--muted); font-size: 12px; line-height: 1.55; }
+
+/* Login reminder */
+.bill-reminder { position: relative; width: min(480px, 100%); padding: 30px 28px 26px; border-radius: 26px; background: #fff; text-align: center; box-shadow: 0 30px 90px rgba(58,47,39,.3); }
+.bill-reminder-close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.bill-reminder-close svg { width: 18px; }
+.bill-reminder-art { position: relative; width: 96px; height: 96px; margin: 0 auto 14px; display: grid; place-items: center; }
+.bill-reminder-art i { position: absolute; border-radius: 50%; }
+.bill-reminder-art i.a { inset: 0; background: var(--sun-soft); }
+.bill-reminder-art i.b { width: 34px; height: 34px; right: -6px; top: 4px; background: var(--peach-soft); }
+.bill-reminder-art svg { position: relative; width: 40px; height: 40px; color: var(--warning); stroke-width: 1.6; }
+.bill-reminder h2 { margin: 0 0 10px; font: 800 24px/1.2 var(--font-display), sans-serif; }
+.bill-reminder > p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.bill-reminder > p strong { color: var(--ink); }
+.bill-reminder-due { display: inline-flex !important; align-items: center; gap: 6px; margin-top: 12px !important; padding: 6px 12px; border-radius: 999px; color: var(--warning) !important; background: var(--sun-soft); font-size: 12px !important; font-weight: 700; }
+.bill-reminder-due svg { width: 14px; height: 14px; }
+.bill-reminder-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.bill-reminder-actions .primary-button { min-height: 54px; border-radius: 999px; font: 800 15px var(--font-display), sans-serif; }
+.bill-reminder-actions .outline-button { border-radius: 999px; }
+.bill-reminder-later { border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; padding: 8px; }
+.bill-reminder-later:hover { color: var(--ink); }
+
+/* Parents mostly open this on a tablet: keep two columns down to iPad portrait,
+   bill first, and keep buttons tall enough for thumbs. */
+@media (max-width: 1120px) { .gd-grid { grid-template-columns: minmax(280px, .95fr) minmax(0, 1.15fr); } }
+@media (max-width: 900px) {
+  .gd-welcome { flex-direction: column; align-items: stretch; }
+  .gd-child { max-width: none; }
+}
+@media (max-width: 760px) {
+  .gd-grid { grid-template-columns: 1fr; }
+  .gd-feature-art { min-height: 190px; }
+}
+/* Phones: parents open this one-handed. Keep the bill and its button inside
+   the first screen, tighten the chrome, and turn the reminder into a bottom sheet. */
+@media (max-width: 680px) {
+  .gd { gap: 14px; }
+  .gd::before { width: 260px; height: 260px; top: -80px; right: -90px; }
+  .gd::after { width: 240px; height: 240px; top: 520px; left: -120px; }
+  .gd-welcome { gap: 12px; }
+  .gd-welcome .eyebrow { margin-bottom: 6px; font-size: 10px; }
+  .gd-welcome h1 { margin-bottom: 4px; font-size: 24px; }
+  .gd-welcome > div > p:last-child { font-size: 13px; line-height: 1.5; }
+  .gd-child { grid-template-columns: 44px minmax(0, 1fr) 16px; gap: 12px; padding: 9px 14px 9px 9px; border-radius: 18px; }
+  .gd-child-avatar { width: 44px; height: 44px; border-radius: 14px; font-size: 15px; }
+  .gd-child-copy strong { font-size: 14px; }
+  .gd-grid { gap: 14px; }
+  .gd-bill, .gd-report { padding: 18px 16px; border-radius: 22px; }
+  .gd-card-head { margin-bottom: 2px; }
+  .gd-card-head h2 { font-size: 18px; }
+  .gd-card-icon { width: 38px; height: 38px; border-radius: 12px; }
+  .gd-bill-amount { padding: 10px 0 14px; }
+  .gd-bill-amount strong { margin: 4px 0 8px; font-size: 32px; }
+  .gd-bill .payment-upload-trigger { min-height: 56px; font-size: 16px; }
+  .gd-bill-hint { margin-top: 8px; }
+  .gd-bill-links { justify-content: space-between; }
+  .gd-feature { padding-top: 14px; }
+  .gd-feature-art { min-height: 170px; border-radius: 18px; }
+  .gd-feature-copy h3 { font-size: 18px; }
+  .gd-feature .teacher-note { display: flex; }
+  .gd-report .primary-button { min-height: 52px; }
+  .modal-backdrop:has(.bill-reminder) { align-items: end; padding: 0; }
+  .bill-reminder { width: 100%; padding: 14px 20px calc(24px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0; box-shadow: 0 -20px 60px rgba(58,47,39,.25); }
+  .bill-reminder::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 18px; border-radius: 999px; background: var(--line); }
+  .bill-reminder-close { top: 18px; }
+  .bill-reminder-art { width: 84px; height: 84px; margin-bottom: 10px; }
+  .bill-reminder h2 { font-size: 22px; }
+  .bill-reminder > p { font-size: 14px; }
+  .bill-reminder-actions { margin-top: 18px; }
+}
+@media (max-width: 430px) {
+  .gd-welcome h1 { font-size: 23px; }
+}
+@media (prefers-reduced-motion: reduce) { .gd-welcome h1 span { animation: none; } }

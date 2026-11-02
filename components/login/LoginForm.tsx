@@ -38,6 +38,7 @@ export default function LoginForm() {
         return;
       }
 
+      try { sessionStorage.setItem("classping:guardian:fresh-login", "1"); } catch { /* The bill reminder simply will not show this login. */ }
       const requestedPath = searchParams.get("next");
       const target = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
       router.replace(target);

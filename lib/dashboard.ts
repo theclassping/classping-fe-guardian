@@ -36,5 +36,10 @@ export function latestOpenInvoice(invoices: readonly Invoice[] | null | undefine
 
 /** The most recently dated activity; items without a date keep their list order after dated ones. */
 export function latestActivity(activities: readonly Activity[]): Activity | undefined {
-  return newestFirst(activities, (activity) => activity.occurredAt)[0];
+  return recentActivities(activities, 1)[0];
+}
+
+/** The newest `limit` activities, most recent first. */
+export function recentActivities(activities: readonly Activity[], limit: number): Activity[] {
+  return newestFirst(activities, (activity) => activity.occurredAt).slice(0, Math.max(0, limit));
 }

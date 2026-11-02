@@ -11,7 +11,7 @@ function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
-export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "Bayar & unggah bukti" }: { child: ChildProfile; invoices: readonly Invoice[]; triggerLabel?: string }) {
+export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "Bayar & unggah bukti", triggerId }: { child: ChildProfile; invoices: readonly Invoice[]; triggerLabel?: string; triggerId?: string }) {
   const router = useRouter();
   const unpaid = useMemo(() => invoices.filter((invoice) => invoicePaymentState(invoice) === "unpaid" && invoice.paidAmount < invoice.billAmount), [invoices]);
   const selected = unpaid[0];
@@ -66,7 +66,7 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
   }
 
   return <>
-    {result ? <PaymentVerificationStatus description={result.text} /> : <button className="primary-button payment-upload-trigger" type="button" disabled={!selected || submitting} onClick={() => { setError(""); setReceipt(null); if (receiptInput.current) receiptInput.current.value = ""; setOpen(true); }}><FileUp /> {triggerLabel}</button>}
+    {result ? <PaymentVerificationStatus description={result.text} /> : <button className="primary-button payment-upload-trigger" id={triggerId} type="button" disabled={!selected || submitting} onClick={() => { setError(""); setReceipt(null); if (receiptInput.current) receiptInput.current.value = ""; setOpen(true); }}><FileUp /> {triggerLabel}</button>}
     {open && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section className="payment-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title">
         <header><span><Landmark /></span><div><h2 id="payment-dialog-title">Konfirmasi pembayaran</h2><p>Kirim pembayaran untuk {child.firstName}.</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Tutup"><X /></button></header>
