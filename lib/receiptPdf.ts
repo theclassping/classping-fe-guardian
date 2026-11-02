@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { PaymentReceipt } from "@/lib/receipt";
 
-const green = rgb(0.09, 0.47, 0.37);
-const ink = rgb(0.07, 0.1, 0.09);
-const muted = rgb(0.42, 0.47, 0.45);
-const line = rgb(0.86, 0.9, 0.88);
-const tint = rgb(0.93, 0.97, 0.95);
+const green = rgb(0, 0.45, 0.37); // brand-strong #00735F
+const ink = rgb(0.23, 0.18, 0.15); // Espresso ink #3A2F27
+const muted = rgb(0.43, 0.37, 0.33); // #6E5F53
+const line = rgb(0.9, 0.87, 0.83); // #E5DED3
+const tint = rgb(0.89, 0.95, 0.93); // brand-soft #E3F1EE
 
 /** Keeps text inside the WinAnsi range that pdf-lib's standard fonts can draw. */
 export function pdfSafeText(value: string) {
@@ -69,7 +69,7 @@ export async function buildReceiptPdf(receipt: PaymentReceipt, options: ReceiptP
     const image = await doc.embedPng(logo);
     const logoHeight = 40;
     const { width: logoWidth } = image.scale(logoHeight / image.height);
-    page.drawImage(image, { x: margin - 7, y: y - 16, width: logoWidth, height: logoHeight });
+    page.drawImage(image, { x: margin - 4, y: y - 16, width: logoWidth, height: logoHeight });
   } else {
     draw("classping", margin, 22, bold, green);
   }
