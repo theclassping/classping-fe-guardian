@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import ActivityDatePicker from "@/components/ActivityDatePicker";
+import PresignedImage from "@/components/PresignedImage";
 import type { Activity, ChildProfile } from "@/lib/data";
 import {
   filterActivitiesByDate,
@@ -111,7 +112,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
             <article className="social-post panel" key={activity.slug}>
               <header><span className="post-avatar">{activity.teacher.replace("Bu ", "B").slice(0, 2)}</span><div><strong>{activity.teacher}</strong><small>{child.className} · {activity.date}, {activity.time}</small></div><b>✓ {child.name} ditandai</b></header>
               <div className={`post-carousel ${activity.tone}`}>
-                {currentImage ? <img className="post-image" src={currentImage} alt={`${activity.title} ${slide + 1}`} /> : <span className="post-scene" aria-label={`${child.name} mengikuti ${activity.title}`}>{slide ? activity.secondaryEmoji : activity.emoji}</span>}
+                {currentImage ? <PresignedImage className="post-image" src={currentImage} alt={`${activity.title} ${slide + 1}`} /> : <span className="post-scene" aria-label={`${child.name} mengikuti ${activity.title}`}>{slide ? activity.secondaryEmoji : activity.emoji}</span>}
                 {images.length > 1 && <><button type="button" aria-label="Foto sebelumnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide - 1 + images.length) % images.length }))}><ChevronLeft /></button><button type="button" aria-label="Foto berikutnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide + 1) % images.length }))}><ChevronRight /></button><span className="post-counter">{slide + 1}/{images.length}</span><div className="post-dots">{images.map((_, index) => <i key={index} className={slide === index ? "active" : ""} />)}</div></>}
               </div>
               <div className="post-content">

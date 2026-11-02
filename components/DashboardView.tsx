@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Images, ReceiptText, Sp
 import BillReminderDialog from "@/components/BillReminderDialog";
 import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
+import PresignedImage from "@/components/PresignedImage";
 import type { Activity, ChildProfile, Invoice } from "@/lib/data";
 import { greetingFor, latestOpenInvoice, recentActivities } from "@/lib/dashboard";
 
@@ -101,8 +102,7 @@ export default function DashboardView({ guardianName, child, childQuery, invoice
             <Link className="gd-feature" href={`/dashboard/activities/${latest.slug}${childQuery}`}>
               <div className={`gd-feature-art ${latest.tone}`}>
                 {latestImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={latestImage} alt={latest.title} />
+                  <PresignedImage src={latestImage} alt={latest.title} />
                 ) : (
                   <span>{latest.emoji}</span>
                 )}
@@ -125,8 +125,7 @@ export default function DashboardView({ guardianName, child, childQuery, invoice
                 <li key={activity.slug}>
                   <Link href={`/dashboard/activities/${activity.slug}${childQuery}`}>
                     <span className={`gd-more-thumb ${activity.tone}`}>{activity.imageUrls?.[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={activity.imageUrls[0]} alt="" />
+                      <PresignedImage src={activity.imageUrls[0]} alt="" />
                     ) : activity.emoji}</span>
                     <span className="gd-more-copy"><strong>{activity.title}</strong><small>{activity.date} · {activity.photos} foto</small></span>
                     <ArrowRight aria-hidden="true" />

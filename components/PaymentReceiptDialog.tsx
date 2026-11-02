@@ -6,6 +6,7 @@ import type { ChildProfile, Invoice } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { invoicePaymentState, submitPaymentProof } from "@/lib/payments";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
+import { resizeImageForUpload } from "@/lib/imageResize";
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
@@ -31,7 +32,6 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
     setResult(null);
     if (!receipt?.size) return setError("Pilih bukti pembayaran terlebih dahulu.");
     if (!/^(image\/(jpeg|png)|application\/pdf)$/.test(receipt.type)) return setError("Bukti harus berupa JPG, PNG, atau PDF.");
-    if (receipt.size > 10 * 1024 * 1024) return setError("Ukuran bukti maksimal 10 MB.");
     const receiptAmount = remainingBefore;
     if (!selected || receiptAmount <= 0) return setError("Tidak ada tagihan yang dapat dibayar.");
     const invoiceId = Number(selected.slug);
@@ -39,12 +39,14 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
 
     setSubmitting(true);
     try {
-      const presignResponse = await fetch("/api/proxy/media/presign/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: receipt.name, content_type: receipt.type, expires_in: 3600 }) });
+      const upload = await resizeImageForUpload(receipt);
+      if (upload.size > 10 * 1024 * 1024) throw new Error("Ukuran bukti maksimal 10 MB.");
+      const presignResponse = await fetch("/api/proxy/media/presign/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: upload.name, content_type: upload.type, expires_in: 3600 }) });
       const presign = (await presignResponse.json()) as { file_key?: string; presigned_url?: string; detail?: string };
       if (!presignResponse.ok || !presign.file_key || !presign.presigned_url) throw new Error(presign.detail || "Bukti pembayaran tidak dapat disiapkan.");
-      const uploadResponse = await fetch(presign.presigned_url, { method: "PUT", headers: { "Content-Type": receipt.type }, body: receipt });
+      const uploadResponse = await fetch(presign.presigned_url, { method: "PUT", headers: { "Content-Type": upload.type }, body: upload });
       if (!uploadResponse.ok) throw new Error("Bukti pembayaran gagal diunggah.");
-      await submitPaymentProof(selected, method, { object_key: presign.file_key, original_name: receipt.name });
+      await submitPaymentProof(selected, method, { object_key: presign.file_key, original_name: upload.name });
       setResult({ text: `Pembayaran ${rupiah(receiptAmount)} berhasil dikirim dan menunggu verifikasi sekolah.` });
       setOpen(false);
       router.refresh();
