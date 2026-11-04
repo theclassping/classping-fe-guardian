@@ -1,5 +1,5 @@
 /** Defense in depth for the selected child; the backend also scopes every response. */
-export type StudentPhoto = { image_url?: string; student_id?: number | string | null; student_ids?: (number | string)[]; tag_state?: "unreviewed" | "individual" | "group" | "legacy" };
+export type StudentPhoto = { image_url?: string; caption?: string | null; position?: number; student_id?: number | string | null; student_ids?: (number | string)[]; tag_state?: "unreviewed" | "individual" | "group" | "legacy" };
 export function photoStudentIds(photo: StudentPhoto) {
   return (photo.student_ids ?? (photo.student_id == null ? [] : [photo.student_id])).map(Number).filter(id => Number.isInteger(id) && id > 0);
 }
@@ -16,6 +16,16 @@ export function photosForStudent<T extends StudentPhoto>(photos: T[] = [], stude
     return tagged.length === 0 || tagged.includes(studentId);
   });
 }
-export function studentRemark(remarks: { student_id: number | string; remark: string }[] = [], studentId?: number) {
-  return studentId ? remarks.find(entry => Number(entry.student_id) === studentId)?.remark.trim() : undefined;
+/**
+ * The teacher's note for a child is the captions on photos tagged to that child.
+ * Shared group/untagged photos are skipped so a note never describes another child.
+ */
+export function studentCaption(photos: StudentPhoto[] = [], studentId?: number) {
+  if (!studentId) return undefined;
+  const captions = photos
+    .filter(photo => photo.tag_state !== "unreviewed" && photoStudentIds(photo).includes(studentId))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map(photo => photo.caption?.trim())
+    .filter((caption): caption is string => Boolean(caption));
+  return captions.length ? [...new Set(captions)].join(" ") : undefined;
 }
