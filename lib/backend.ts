@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { photosForStudent, studentRemark, type StudentPhoto } from "@/lib/activityVisibility";
+import { photosForStudent, studentCaption, type StudentPhoto } from "@/lib/activityVisibility";
 import { decodeIdentity } from "@/lib/auth";
 import { getChild } from "@/lib/data";
 import type { Activity, ChildId, Invoice } from "@/lib/data";
@@ -23,7 +23,6 @@ type ApiActivity = {
   activity_students?: ApiStudentLink[];
   students?: ApiStudentLink[];
   is_publish?: boolean;
-  student_remarks?: { student_id: number | string; remark: string }[];
 };
 
 type ApiClassTeacher = {
@@ -451,7 +450,7 @@ export async function activitiesForBackend(childId: ChildId, fallback: Activity[
       summary: item.description || "Catatan aktivitas dari sekolah.",
       description: item.description || "Catatan aktivitas dari sekolah.",
       teacher: await teacherForActivity(item, teacherCache),
-      teacherNote: studentRemark(item.student_remarks, studentId) || "Informasi aktivitas tersedia dari sekolah.",
+      teacherNote: studentCaption(item.activity_images, studentId) || "Informasi aktivitas tersedia dari sekolah.",
       skills: [],
       imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
       occurredAt: item.activity_date || item.updated_at || item.created_at,
@@ -467,22 +466,26 @@ export async function activityForBackend(slug: string, childId: ChildId, fallbac
   if (studentId && !activityMatchesStudent(item, studentId)) return null;
   const visibleImages = imagesForStudent(item.activity_images, studentId);
   const teacher = await teacherForActivity(item, new Map());
+  // Missing fields get the same neutral defaults as the list, never text from the demo activity.
   return {
-    ...fallback,
     childId,
     slug,
-    title: item.name || fallback.title,
-    date: item.activity_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.activity_date)) : fallback.date,
-    time: item.activity_date ? new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(item.activity_date)) : fallback.time,
+    title: item.name || "Aktivitas sekolah",
+    date: item.activity_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.activity_date)) : "Tanggal belum tersedia",
+    time: item.activity_date ? new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(item.activity_date)) : "",
+    emoji: "🎨",
+    secondaryEmoji: "📷",
+    tone: "mint",
     photos: visibleImages.length,
-    summary: item.description || fallback.summary,
-    description: item.description || fallback.description,
+    summary: item.description || "Catatan aktivitas dari sekolah.",
+    description: item.description || "Catatan aktivitas dari sekolah.",
     teacher,
-    // The note card is the teacher's remark about this child only; the activity description already sits in the hero.
-    teacherNote: studentRemark(item.student_remarks, studentId) || "Belum ada catatan khusus dari guru.",
+    // The note card is the teacher's caption on this child's own photos; the activity description already sits in the hero.
+    teacherNote: studentCaption(item.activity_images, studentId) || "Belum ada catatan khusus dari guru.",
     skills: [],
     imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
-  } as Activity;
+    occurredAt: item.activity_date || item.updated_at || item.created_at,
+  } satisfies Activity;
 }
 
 /** Resolves to the guardian's bills, or `null` when the backend could not be read (expired session, outage). Sample bills only appear in demo mode. */
