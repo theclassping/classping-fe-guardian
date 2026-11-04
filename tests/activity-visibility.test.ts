@@ -5,8 +5,12 @@ describe("private student photos and shared group photos", () => {
   it("shows Mark's photo and all three group photos", () => {
     expect(photosForStudent(photos, 1).map(p => p.image_url)).toEqual(["student-1", "group-1", "group-2", "group-3"]);
   });
-  it("does not treat unreviewed or mixed legacy photos as shared", () => {
-    expect(photosForStudent([{ student_id: null, tag_state: "unreviewed" }, { student_id: 2, tag_state: "individual" }, { student_id: null, tag_state: "legacy" }], 1)).toEqual([]);
+  it("shares untagged and legacy photos even next to other children's tagged photos", () => {
+    const mixed = [{ image_url: "other", student_id: 2, tag_state: "individual" as const }, { image_url: "legacy", student_id: null, tag_state: "legacy" as const }, { image_url: "untagged", student_id: null }];
+    expect(photosForStudent(mixed, 1).map(p => p.image_url)).toEqual(["legacy", "untagged"]);
+  });
+  it("hides unreviewed photos and other children's photos", () => {
+    expect(photosForStudent([{ student_id: null, tag_state: "unreviewed" }, { student_id: 2, tag_state: "individual" }], 1)).toEqual([]);
   });
   it("keeps all-untagged historical galleries compatible", () => {
     const legacy = [{ image_url: "old", student_id: null, tag_state: "legacy" as const }];

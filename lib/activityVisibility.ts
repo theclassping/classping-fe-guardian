@@ -3,15 +3,17 @@ export type StudentPhoto = { image_url?: string; student_id?: number | string | 
 export function photoStudentIds(photo: StudentPhoto) {
   return (photo.student_ids ?? (photo.student_id == null ? [] : [photo.student_id])).map(Number).filter(id => Number.isInteger(id) && id > 0);
 }
+/**
+ * A guardian sees the child's own tagged photos plus every shared photo: group shots
+ * and untagged photos, whatever their tag_state (backends without tagging send none).
+ * Only photos the teacher has not reviewed yet stay hidden.
+ */
 export function photosForStudent<T extends StudentPhoto>(photos: T[] = [], studentId?: number): T[] {
   if (!studentId) return photos;
-  const hasIndividual = photos.some(photo => photoStudentIds(photo).length > 0);
   return photos.filter(photo => {
     if (photo.tag_state === "unreviewed") return false;
-    if (photo.tag_state === "group") return photoStudentIds(photo).length === 0;
-    if (photoStudentIds(photo).includes(studentId)) return true;
-    // Historical galleries retain their former all-untagged behavior.
-    return !hasIndividual && (!photo.tag_state || photo.tag_state === "legacy") && photoStudentIds(photo).length === 0;
+    const tagged = photoStudentIds(photo);
+    return tagged.length === 0 || tagged.includes(studentId);
   });
 }
 export function studentRemark(remarks: { student_id: number | string; remark: string }[] = [], studentId?: number) {

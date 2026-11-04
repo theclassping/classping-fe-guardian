@@ -478,7 +478,8 @@ export async function activityForBackend(slug: string, childId: ChildId, fallbac
     summary: item.description || fallback.summary,
     description: item.description || fallback.description,
     teacher,
-    teacherNote: studentRemark(item.student_remarks, studentId) || item.description || "Belum ada catatan khusus dari guru.",
+    // The note card is the teacher's remark about this child only; the activity description already sits in the hero.
+    teacherNote: studentRemark(item.student_remarks, studentId) || "Belum ada catatan khusus dari guru.",
     skills: [],
     imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
   } as Activity;
