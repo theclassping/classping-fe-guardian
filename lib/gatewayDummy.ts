@@ -2,20 +2,28 @@
 // prepared. State lives in sessionStorage so checkout → instructions → paid
 // survives navigation within the tab. Never used when
 // NEXT_PUBLIC_PAYMENT_GATEWAY_MODE is not "dummy".
-import type { ChannelQuery, CheckoutRequest, GatewayChannel, GatewayChannelsResponse, GatewayPayment, PendingGatewayPayment } from "@/lib/gateway";
+import type { ChannelQuery, CheckoutRequest, GatewayChannel, GatewayChannelsResponse, GatewayMethod, GatewayPayment, PendingGatewayPayment } from "@/lib/gateway";
 
 const STORAGE_KEY = "classping.gateway.dummy";
 
-// Mirrors GATEWAY_CHANNELS in the proposal (sample rates).
-const CHANNELS = [
-  { code: "VABNI", name: "BNI Virtual Account", method: "virtual_account", feeType: "flat", fee: 4000, min: 10000, max: null },
-  { code: "VABCA", name: "BCA Virtual Account", method: "virtual_account", feeType: "flat", fee: 4000, min: 10000, max: null },
-  { code: "VABRI", name: "BRI Virtual Account", method: "virtual_account", feeType: "flat", fee: 4000, min: 10000, max: null },
-  { code: "VAMANDIRI", name: "Mandiri Virtual Account", method: "virtual_account", feeType: "flat", fee: 4000, min: 10000, max: null },
-  { code: "VAPERMATA", name: "Permata Virtual Account", method: "virtual_account", feeType: "flat", fee: 4000, min: 10000, max: null },
-  { code: "QRIS", name: "QRIS", method: "qris", feeType: "percent", fee: 0.7, min: 1000, max: 10_000_000 },
-  { code: "CC", name: "Kartu Kredit", method: "credit_card", feeType: "percent", fee: 3.0, min: 10000, max: 100_000_000 },
-] as const;
+/**
+ * Mirrors the channel list returned by `GET gateway/channels` for a
+ * Rp150.000 invoice total. Virtual accounts carry a flat fee; the other
+ * channels scale their sample fee with the total.
+ */
+const SAMPLE_TOTAL = 150_000;
+const CHANNELS: readonly { code: string; name: string; method: GatewayMethod; fee: number; scaled: boolean }[] = [
+  { code: "VABCA", name: "BCA Virtual Account", method: "virtual_account", fee: 5000, scaled: false },
+  { code: "VABRI", name: "BRI Virtual Account", method: "virtual_account", fee: 5000, scaled: false },
+  { code: "VAMANDIRI", name: "Mandiri Virtual Account", method: "virtual_account", fee: 5000, scaled: false },
+  { code: "VABNI", name: "BNI Virtual Account", method: "virtual_account", fee: 5000, scaled: false },
+  { code: "VAPERMATA", name: "Permata Virtual Account", method: "virtual_account", fee: 5000, scaled: false },
+  { code: "CC", name: "Kartu Kredit", method: "credit_card", fee: 3062, scaled: true },
+  { code: "TOKOPEDIA CC", name: "Tokopedia (Kartu Kredit)", method: "e_commerce", fee: 2672, scaled: true },
+  { code: "TOKOPEDIA NON CC", name: "Tokopedia", method: "e_commerce", fee: 754, scaled: true },
+  { code: "BLIBLI CC", name: "Blibli (Kartu Kredit)", method: "e_commerce", fee: 2672, scaled: true },
+];
+const MIN_TOTAL = 10_000;
 
 type Store = { payments: GatewayPayment[]; counter: number };
 
@@ -34,16 +42,15 @@ function write(store: Store) {
 const money = (value: number) => value.toFixed(2);
 
 export function feeFor(channel: (typeof CHANNELS)[number], total: number) {
-  return channel.feeType === "flat" ? channel.fee : Math.round((total * channel.fee) / 100);
+  return channel.scaled ? Math.round((channel.fee * total) / SAMPLE_TOTAL) : channel.fee;
 }
 
-/** Channels valid for this total: those whose grand total sits inside the method's min/max. */
+/** Channels valid for this total, priced like the real `gateway/channels` response. */
 export function channelsForTotal(total: number): GatewayChannel[] {
-  return CHANNELS.flatMap((channel) => {
+  if (total < MIN_TOTAL) return [];
+  return CHANNELS.map((channel) => {
     const fee = feeFor(channel, total);
-    const amount = total + fee;
-    if (amount < channel.min || (channel.max !== null && amount > channel.max)) return [];
-    return [{ code: channel.code, name: channel.name, payment_method: channel.method, transaction_fee: money(fee), amount: money(amount) }];
+    return { code: channel.code, name: channel.name, payment_method: channel.method, transaction_fee: money(fee), amount: money(total + fee) };
   });
 }
 
@@ -67,6 +74,17 @@ function expireStale(store: Store, now = Date.now()) {
   }
 }
 
+function gatewayError(code: string, message: string) {
+  const error = new Error(message) as Error & { code?: string };
+  error.code = code;
+  return error;
+}
+
+/** Stand-in for the provider's hosted page (card form / Tokopedia / Blibli). */
+export function dummyProviderHref(payment: Pick<GatewayPayment, "id">) {
+  return `/dashboard/payments/online/simulator?payment_id=${encodeURIComponent(String(payment.id))}`;
+}
+
 export async function dummyCheckout(request: CheckoutRequest): Promise<GatewayPayment> {
   await pause();
   const store = read();
@@ -74,11 +92,11 @@ export async function dummyCheckout(request: CheckoutRequest): Promise<GatewayPa
   const existing = store.payments.find((payment) => payment.payment_no.endsWith(request.idempotencyKey.slice(0, 8)));
   if (existing) return existing;
   const locked = request.invoiceIds.find((id) => store.payments.some((payment) => payment.status === "pending" && payment.items.some((item) => String(item.student_invoice_id) === id)));
-  if (locked) { const error = new Error("Ada tagihan yang sedang menunggu pembayaran online lain. Selesaikan atau tunggu sampai kedaluwarsa.") as Error & { code?: string }; error.code = "INVOICE_LOCKED"; throw error; }
+  if (locked) throw gatewayError("INVOICE_LOCKED", "Ada tagihan yang sedang menunggu pembayaran online lain. Selesaikan atau tunggu sampai kedaluwarsa.");
   const items = request.items || request.invoiceIds.map((id) => ({ student_invoice_id: id, amount: "0.00" }));
   const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
   const channel = CHANNELS.find((item) => item.code === request.channel);
-  if (!channel) { const error = new Error("Metode pembayaran ini tidak tersedia untuk jumlah tagihan tersebut.") as Error & { code?: string }; error.code = "CHANNEL_NOT_AVAILABLE"; throw error; }
+  if (!channel || total < MIN_TOTAL) throw gatewayError("CHANNEL_NOT_AVAILABLE", "Metode pembayaran ini tidak tersedia untuk jumlah tagihan tersebut.");
   const fee = feeFor(channel, total);
   const { expires_at } = deadlineFor();
   store.counter += 1;
@@ -96,8 +114,8 @@ export async function dummyCheckout(request: CheckoutRequest): Promise<GatewayPa
     transaction_fee: money(fee),
     platform_fee: "0.00",
     amount: money(total + fee),
-    payment_code: channel.method === "virtual_account" ? `988${String(store.counter).padStart(5, "0")}${stamp.slice(2)}` : channel.method === "qris" ? `00020101021226610014ID.CO.RINTISAN.WWW0118936009${sequence}0215ID${stamp}${sequence}0303UMI5204829953033605802ID5909CLASSPING6007JAKARTA6304SIMU` : null,
-    payment_link: channel.method === "credit_card" ? `https://sandbox.rintisan.co.id/pay/PAY-${stamp}-${sequence}` : null,
+    payment_code: channel.method === "virtual_account" ? `988${String(store.counter).padStart(5, "0")}${stamp.slice(2)}` : null,
+    payment_link: channel.method === "virtual_account" ? null : dummyProviderHref({ id: store.counter }),
     expires_at,
     created_at: new Date().toISOString(),
     paid_at: null,
@@ -122,6 +140,19 @@ export async function dummyPayments(): Promise<GatewayPayment[]> {
   expireStale(store);
   write(store);
   return store.payments;
+}
+
+/** Simulates `POST gateway/payments/{id}/cancel`: only a pending checkout can be abandoned. */
+export async function dummyCancel(id: number | string): Promise<GatewayPayment> {
+  await pause(200);
+  const store = read();
+  expireStale(store);
+  const payment = store.payments.find((item) => String(item.id) === String(id));
+  if (!payment) throw gatewayError("NOT_FOUND", "Pembayaran tidak ditemukan.");
+  if (payment.status !== "pending") throw gatewayError("PAYMENT_NOT_PENDING", "Pembayaran ini sudah selesai, kedaluwarsa, atau dibatalkan sehingga tidak dapat dibatalkan lagi.");
+  payment.status = "cancelled";
+  write(store);
+  return payment;
 }
 
 /** Simulates the Rintisan payment callback for a pending checkout. */

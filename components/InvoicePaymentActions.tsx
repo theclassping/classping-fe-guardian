@@ -26,7 +26,7 @@ export default function InvoicePaymentActions({ child, invoice, gatewayEnabled, 
         <Clock3 aria-hidden="true" />
         <div>
           <strong>Menunggu pembayaran online</strong>
-          <p>Tagihan ini sedang dalam transaksi {pending.channelName || "pembayaran online"}{pending.expiresAt ? ` yang berlaku sampai ${formatDateTime(pending.expiresAt)}` : ""}. Unggah bukti transfer tidak tersedia sampai transaksi selesai atau kedaluwarsa.</p>
+          <p>Tagihan ini sedang dalam transaksi {pending.channelName || "pembayaran online"}{pending.expiresAt ? ` yang berlaku sampai ${formatDateTime(pending.expiresAt)}` : ""}. Unggah bukti transfer tidak tersedia sampai transaksi selesai, dibatalkan, atau kedaluwarsa.</p>
           <Link className="primary-button" href={gatewayPaymentHref(pending.id, childQuery)}>Lihat instruksi pembayaran <ArrowRight aria-hidden="true" /></Link>
         </div>
       </div>
@@ -38,7 +38,7 @@ export default function InvoicePaymentActions({ child, invoice, gatewayEnabled, 
       {online && (
         <div className="gateway-option">
           <Link className="primary-button" href={checkoutHref([current.slug], childQuery)}><CreditCard aria-hidden="true" /> Bayar online</Link>
-          <small>Virtual Account, QRIS, atau kartu kredit. Tagihan langsung lunas tanpa verifikasi manual.</small>
+          <small>Virtual Account, kartu kredit, Tokopedia, atau Blibli. Tagihan langsung lunas tanpa verifikasi manual.</small>
         </div>
       )}
       <div className={online ? "manual-option" : undefined}>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile, Invoice } from "@/lib/data";
@@ -9,7 +9,7 @@ import { createCheckout, fetchChannels, formatDateTime, gatewayPaymentHref, grou
 import { useGatewayOverlay } from "@/components/useGatewayOverlay";
 import { isPayableOnline } from "@/components/PaymentList";
 
-const METHOD_ICONS = { virtual_account: Building2, qris: QrCode, credit_card: CreditCard } as const;
+const METHOD_ICONS = { virtual_account: Building2, credit_card: CreditCard, e_commerce: ShoppingBag, qris: QrCode } as const;
 
 export default function GatewayCheckout({ child, invoices, listHref, childQuery }: { child: ChildProfile; invoices: readonly Invoice[]; listHref: string; childQuery: string }) {
   const router = useRouter();

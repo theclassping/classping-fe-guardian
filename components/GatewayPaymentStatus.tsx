@@ -1,21 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { fetchGatewayPayment, formatDateTime, gatewayMode, isExpired, rupiah, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/lib/gateway";
+import { cancelGatewayPayment, fetchGatewayPayment, formatDateTime, gatewayMode, isExpired, isExternalMethod, rupiah, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/lib/gateway";
 
 const POLL_MS = 10_000;
 
-export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }: { paymentId: string; listHref: string; childQuery: string }) {
+/**
+ * Instructions + live status for one online checkout. Also the landing view
+ * after the parent returns from an external payment page (`returned`), where
+ * polling continues until the provider callback marks it paid.
+ */
+export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, returned = false }: { paymentId: string; listHref: string; childQuery: string; returned?: boolean }) {
   const router = useRouter();
   const [payment, setPayment] = useState<GatewayPayment | null | undefined>(undefined);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState("");
   const [now, setNow] = useState(() => new Date());
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   async function load() {
     try {
@@ -36,11 +44,11 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }
 
   useEffect(() => {
     if (!payment || payment.status !== "pending") return;
-    const poll = window.setInterval(() => void load(), POLL_MS);
+    const poll = window.setInterval(() => void load(), returned ? POLL_MS / 2 : POLL_MS);
     const tick = window.setInterval(() => setNow(new Date()), 30_000);
     return () => { window.clearInterval(poll); window.clearInterval(tick); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [payment?.status, paymentId]);
+  }, [payment?.status, paymentId, returned]);
 
   useEffect(() => {
     if (payment?.payment_method === "qris" && payment.payment_code) {
@@ -58,13 +66,30 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }
     await load();
   }
 
-  if (payment === undefined && !error) return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="status"><span aria-hidden="true">⏳</span><h2>Memuat instruksi pembayaran…</h2></section></article>;
+  async function cancel() {
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const next = await cancelGatewayPayment(paymentId);
+      setPayment(next);
+      setConfirmingCancel(false);
+      router.refresh();
+    } catch (cancelFailure) {
+      setCancelError(cancelFailure instanceof Error ? cancelFailure.message : "Pembayaran tidak dapat dibatalkan.");
+      void load();
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  if (payment === undefined && !error) return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="status"><span aria-hidden="true">⏳</span><h2>{returned ? "Memeriksa status pembayaran…" : "Memuat instruksi pembayaran…"}</h2></section></article>;
   if (payment === null) return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="status"><span aria-hidden="true">🔎</span><h2>Pembayaran tidak ditemukan</h2><p>Transaksi ini tidak tersedia atau bukan milik anak Anda.</p><div className="payment-lookup-actions"><Link className="primary-button" href={listHref}>Lihat daftar tagihan</Link></div></section></article>;
   if (!payment) return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="alert"><span aria-hidden="true">⏳</span><h2>Status belum dapat dimuat</h2><p>{error}</p><div className="payment-lookup-actions"><button className="outline-button" type="button" onClick={() => void load()}><RefreshCw /> Coba lagi</button></div></section></article>;
 
   const expired = isExpired(payment, now);
   const status = expired ? "expired" : payment.status;
   const remaining = status === "pending" ? timeLeft(payment.expires_at, now) : "";
+  const external = isExternalMethod(payment.payment_method);
 
   return (
     <article className="detail-page payment-detail">
@@ -88,8 +113,22 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }
           </div>
         )}
 
+        {status === "cancelled" && (
+          <div className="gateway-cancelled" role="status">
+            <Ban aria-hidden="true" />
+            <div><strong>Pembayaran dibatalkan</strong><p>Transaksi ini tidak dapat dipakai lagi. Tagihan di bawah ini kembali dapat dibayar online dengan metode lain atau lewat transfer manual.</p></div>
+          </div>
+        )}
+
         {status === "pending" && (
           <>
+            {returned && (
+              <div className="gateway-returned" role="status">
+                <RefreshCw aria-hidden="true" />
+                <div><strong>Menunggu konfirmasi dari {payment.channel_name || "penyedia pembayaran"}</strong><p>Jika Anda sudah menyelesaikan pembayaran, status akan berubah menjadi lunas dalam beberapa saat. Halaman ini memeriksa status secara otomatis.</p></div>
+              </div>
+            )}
+
             <div className="gateway-deadline"><Clock3 aria-hidden="true" /><div><strong>Bayar sebelum {formatDateTime(payment.expires_at)}</strong><small>{remaining ? `Sisa waktu ${remaining}` : "Batas waktu hampir habis"} · status diperbarui otomatis</small></div></div>
 
             {payment.payment_method === "virtual_account" && payment.payment_code && (
@@ -117,16 +156,36 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }
               </div>
             )}
 
-            {payment.payment_method === "credit_card" && payment.payment_link && (
+            {external && payment.payment_link && (
               <div className="gateway-instruction">
-                <span className="gateway-instruction-label">Pembayaran kartu kredit</span>
-                <a className="primary-button" href={payment.payment_link} target="_blank" rel="noopener noreferrer">Buka halaman pembayaran <ExternalLink aria-hidden="true" /></a>
-                <p className="fine-note">Halaman pembayaran kartu dibuka di tab baru. Setelah selesai, kembali ke sini untuk melihat status.</p>
+                <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit" : `Pembayaran lewat ${payment.channel_name || "aplikasi e-commerce"}`}</span>
+                <a className="primary-button" href={payment.payment_link}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></a>
+                <ol>
+                  <li>Anda akan diarahkan ke halaman {payment.channel_name || "penyedia pembayaran"} untuk menyelesaikan pembayaran sebesar <strong>{rupiah(payment.amount)}</strong>.</li>
+                  <li>Setelah selesai, Anda dikembalikan ke halaman ini secara otomatis. Jika tidak, buka kembali halaman ini dari daftar tagihan.</li>
+                  <li>Status berubah menjadi lunas begitu {payment.channel_name || "penyedia pembayaran"} mengonfirmasi pembayaran.</li>
+                </ol>
               </div>
             )}
 
-            <p className="payment-verification-live"><RefreshCw aria-hidden="true" /> Status diperbarui otomatis setiap 10 detik.<button type="button" onClick={() => void load()}>Periksa sekarang</button></p>
+            <p className="payment-verification-live"><RefreshCw aria-hidden="true" /> Status diperbarui otomatis setiap {returned ? 5 : 10} detik.<button type="button" onClick={() => void load()}>Periksa sekarang</button></p>
             {gatewayMode() === "dummy" && <button type="button" className="outline-button gateway-simulate" onClick={() => void simulatePaid()}>Simulasi: tandai sudah dibayar</button>}
+
+            <div className="gateway-cancel">
+              {confirmingCancel ? (
+                <div className="gateway-cancel-confirm" role="alertdialog" aria-labelledby="gateway-cancel-title">
+                  <strong id="gateway-cancel-title">Batalkan pembayaran ini?</strong>
+                  <p>Nomor pembayaran {payment.payment_no} tidak dapat dipakai lagi{payment.payment_method === "virtual_account" ? ", jadi jangan transfer ke Virtual Account di atas setelah dibatalkan" : ""}. Tagihan kembali dapat dibayar dengan metode lain. Pembayaran yang sudah terlanjur dikirim tidak dapat dibatalkan.</p>
+                  {cancelError && <p className="form-message error" role="alert">{cancelError}</p>}
+                  <div className="gateway-cancel-actions">
+                    <button type="button" className="outline-button" disabled={cancelling} onClick={() => { setConfirmingCancel(false); setCancelError(""); }}>Kembali</button>
+                    <button type="button" className="danger-button" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? "Membatalkan…" : "Ya, batalkan pembayaran"}</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="gateway-cancel-trigger" onClick={() => setConfirmingCancel(true)}><Ban aria-hidden="true" /> Batalkan pembayaran</button>
+              )}
+            </div>
           </>
         )}
 
@@ -139,10 +198,10 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery }
             </div>
           ))}
         </div>
-        {status === "expired" && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Pilih tagihan lagi</Link></footer>}
+        {(status === "expired" || status === "cancelled") && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Pilih tagihan lagi</Link></footer>}
         {status === "paid" && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Lihat riwayat pembayaran</Link></footer>}
       </section>
-      <section className="privacy-card panel">{status === "expired" ? <XCircle /> : <ShieldCheck />}<div><h2>Transaksi terlindungi</h2><p>Pembayaran diproses oleh mitra pembayaran resmi. Jangan membagikan nomor Virtual Account atau kode QR kepada pihak lain.</p></div></section>
+      <section className="privacy-card panel">{status === "expired" || status === "cancelled" ? <XCircle /> : <ShieldCheck />}<div><h2>Transaksi terlindungi</h2><p>Pembayaran diproses oleh mitra pembayaran resmi. Jangan membagikan nomor Virtual Account atau tautan pembayaran kepada pihak lain.</p></div></section>
     </article>
   );
 }

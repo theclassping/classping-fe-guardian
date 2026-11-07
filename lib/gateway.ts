@@ -3,14 +3,16 @@
 //   GET  /api/gateway/channels?invoice_ids=…  → channels with fee + total per method
 //   POST /api/gateway/checkout {invoice_ids, channel} → payment instructions
 //   GET  /api/gateway/payments, /api/gateway/payments/{id} → history + polling
+//   POST /api/gateway/payments/{id}/cancel → guardian abandons a pending checkout
+//        (assumed endpoint: the draft proposal had no cancel; the backend is adding one)
 // The manual proof-upload flow stays untouched; this module only adds the
 // online option for branches with `is_payment_gateway_enabled`.
 //
 // While the backend is being prepared, NEXT_PUBLIC_PAYMENT_GATEWAY_MODE=dummy
 // routes every call to the in-browser simulation in `gatewayDummy.ts`.
 
-export type GatewayMethod = "virtual_account" | "qris" | "credit_card";
-export type GatewayStatus = "pending" | "paid" | "expired";
+export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "qris";
+export type GatewayStatus = "pending" | "paid" | "expired" | "cancelled";
 
 export type GatewayChannel = {
   code: string;
@@ -74,6 +76,8 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   CHANNEL_NOT_AVAILABLE: "Metode pembayaran ini tidak tersedia untuk jumlah tagihan tersebut.",
   PAYER_PHONE_INVALID: "Nomor HP wali belum terisi atau tidak valid. Perbarui nomor HP di profil Anda.",
   PROVIDER_UNAVAILABLE: "Layanan pembayaran sedang tidak dapat dihubungi. Silakan coba lagi.",
+  PAYMENT_NOT_PENDING: "Pembayaran ini sudah selesai, kedaluwarsa, atau dibatalkan sehingga tidak dapat dibatalkan lagi.",
+  PAYMENT_NOT_CANCELLABLE: "Pembayaran ini tidak dapat dibatalkan. Tunggu sampai batas waktu berakhir.",
 };
 
 /** Tolerates values saved with quotes, spaces, or different casing in hosting dashboards. */
@@ -93,23 +97,30 @@ export function rupiah(value: string | number) {
 
 export const METHOD_LABELS: Record<GatewayMethod, string> = {
   virtual_account: "Virtual Account",
-  qris: "QRIS",
   credit_card: "Kartu Kredit",
+  e_commerce: "E-Commerce",
+  qris: "QRIS",
 };
+
+/** Methods completed on the provider's or another app's page, after which the parent is sent back to the return page. */
+export function isExternalMethod(method: GatewayMethod) {
+  return method === "credit_card" || method === "e_commerce";
+}
 
 export const STATUS_LABELS: Record<GatewayStatus, string> = {
   pending: "Menunggu pembayaran",
   paid: "Lunas",
   expired: "Kedaluwarsa",
+  cancelled: "Dibatalkan",
 };
 
-export function statusTone(status: GatewayStatus): "warning" | "success" | "late" {
-  return status === "paid" ? "success" : status === "expired" ? "late" : "warning";
+export function statusTone(status: GatewayStatus): "warning" | "success" | "late" | "partial" {
+  return status === "paid" ? "success" : status === "expired" ? "late" : status === "cancelled" ? "partial" : "warning";
 }
 
 /** Channels grouped by method, in the order shown to the parent. */
 export function groupChannels(channels: readonly GatewayChannel[]) {
-  const order: GatewayMethod[] = ["virtual_account", "qris", "credit_card"];
+  const order: GatewayMethod[] = ["virtual_account", "credit_card", "e_commerce", "qris"];
   return order
     .map((method) => ({ method, label: METHOD_LABELS[method], channels: channels.filter((channel) => channel.payment_method === method) }))
     .filter((group) => group.channels.length > 0);
@@ -152,6 +163,17 @@ export function checkoutHref(invoiceIds: readonly string[], childQuery = "") {
 
 export function gatewayPaymentHref(id: number | string, childQuery = "") {
   return `/dashboard/payments/online/${encodeURIComponent(String(id))}${childQuery}`;
+}
+
+/** Landing page the provider (or an e-commerce app) sends the parent back to after paying. */
+export function gatewayReturnHref(payment: Pick<GatewayPayment, "id" | "payment_no">, origin = "") {
+  return `${origin}/dashboard/payments/online/return?payment_id=${encodeURIComponent(String(payment.id))}&payment_no=${encodeURIComponent(payment.payment_no)}`;
+}
+
+/** Reads whichever reference the provider put in the return URL. */
+export function returnReference(params: Record<string, string | string[] | undefined>) {
+  const pick = (key: string) => { const value = params[key]; return (Array.isArray(value) ? value[0] : value)?.trim() || undefined; };
+  return { id: pick("payment_id") || pick("id"), paymentNo: pick("payment_no") || pick("reference_id") || pick("order_id") || pick("trx_id") };
 }
 
 async function readError(response: Response, fallback: string): Promise<never> {
@@ -207,4 +229,17 @@ export async function fetchGatewayPayments(studentId?: string): Promise<GatewayP
 
 export function newIdempotencyKey() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export async function cancelGatewayPayment(id: number | string): Promise<GatewayPayment> {
+  if (gatewayMode() === "dummy") return (await dummy()).dummyCancel(id);
+  const response = await fetch(`/api/proxy/gateway/payments/${encodeURIComponent(String(id))}/cancel/`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } });
+  if (!response.ok) await readError(response, "Pembayaran tidak dapat dibatalkan.");
+  return response.json();
+}
+
+/** Finds a payment by its number, for return URLs that carry only `payment_no`. */
+export async function findGatewayPaymentByNo(paymentNo: string): Promise<GatewayPayment | null> {
+  const payments = await fetchGatewayPayments();
+  return payments.find((payment) => payment.payment_no === paymentNo) || null;
 }

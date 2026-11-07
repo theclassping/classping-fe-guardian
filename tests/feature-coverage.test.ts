@@ -19,6 +19,7 @@ describe("ClassPing Guardian feature smoke coverage", () => {
       "app/dashboard/payments/[slug]/page.tsx",
       "app/dashboard/payments/checkout/page.tsx",
       "app/dashboard/payments/online/[id]/page.tsx",
+      "app/dashboard/payments/online/return/page.tsx",
       "app/dashboard/profile/page.tsx",
       "app/dashboard/settings/page.tsx",
       "app/dashboard/school/page.tsx",

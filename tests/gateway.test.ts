@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkoutHref, groupChannels, isDummyGatewayMode, isExpired, parseInvoiceIds, timeLeft, type GatewayChannel } from "@/lib/gateway";
-import { channelsForTotal, deadlineFor, dummyCheckout, dummyMarkPaid, dummyPayment, dummyPendingByInvoice } from "@/lib/gatewayDummy";
+import { checkoutHref, gatewayReturnHref, groupChannels, isDummyGatewayMode, isExpired, isExternalMethod, parseInvoiceIds, returnReference, timeLeft, type GatewayChannel } from "@/lib/gateway";
+import { channelsForTotal, deadlineFor, dummyCancel, dummyCheckout, dummyMarkPaid, dummyPayment, dummyPendingByInvoice } from "@/lib/gatewayDummy";
 import { isPayableOnline } from "@/components/PaymentList";
 import type { Invoice } from "@/lib/data";
 
@@ -22,12 +22,21 @@ describe("gateway helpers", () => {
     for (const value of ["api", "", undefined, "dummy mode"]) expect(isDummyGatewayMode(value)).toBe(false);
   });
 
-  it("groups channels by method in VA → QRIS → card order and drops empty groups", () => {
+  it("groups channels by method in VA → card → e-commerce order and drops empty groups", () => {
     const channels: GatewayChannel[] = [
-      { code: "QRIS", name: "QRIS", payment_method: "qris", transaction_fee: "0.00", amount: "50000.00" },
-      { code: "VABNI", name: "BNI Virtual Account", payment_method: "virtual_account", transaction_fee: "4000.00", amount: "54000.00" },
+      { code: "TOKOPEDIA NON CC", name: "Tokopedia", payment_method: "e_commerce", transaction_fee: "754.00", amount: "150754.00" },
+      { code: "CC", name: "Kartu Kredit", payment_method: "credit_card", transaction_fee: "3062.00", amount: "153062.00" },
+      { code: "VABNI", name: "BNI Virtual Account", payment_method: "virtual_account", transaction_fee: "5000.00", amount: "155000.00" },
     ];
-    expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "qris"]);
+    expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "credit_card", "e_commerce"]);
+    expect(isExternalMethod("e_commerce")).toBe(true);
+    expect(isExternalMethod("virtual_account")).toBe(false);
+  });
+
+  it("builds the return URL and reads whichever reference the provider sends back", () => {
+    expect(gatewayReturnHref({ id: 501, payment_no: "PAY-1" }, "https://guardian.example")).toBe("https://guardian.example/dashboard/payments/online/return?payment_id=501&payment_no=PAY-1");
+    expect(returnReference({ payment_id: "501", payment_no: "PAY-1" })).toEqual({ id: "501", paymentNo: "PAY-1" });
+    expect(returnReference({ order_id: ["PAY-2"] })).toEqual({ id: undefined, paymentNo: "PAY-2" });
   });
 
   it("treats a pending checkout past its deadline as expired and formats the time left", () => {
@@ -57,12 +66,16 @@ describe("dummy gateway simulation", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("prices channels like GATEWAY_CHANNELS and hides methods outside their limits", () => {
+  it("prices channels exactly like the gateway/channels response for Rp150.000", () => {
     const channels = channelsForTotal(150000);
-    expect(channels.find((channel) => channel.code === "VABNI")).toMatchObject({ transaction_fee: "4000.00", amount: "154000.00" });
-    expect(channels.find((channel) => channel.code === "QRIS")).toMatchObject({ transaction_fee: "1050.00", amount: "151050.00" });
-    expect(channelsForTotal(20_000_000).some((channel) => channel.code === "QRIS")).toBe(false);
-    expect(channelsForTotal(20_000_000).some((channel) => channel.code === "CC")).toBe(true);
+    const byCode = Object.fromEntries(channels.map((channel) => [channel.code, channel]));
+    expect(channels.map((channel) => channel.code)).toEqual(["VABCA", "VABRI", "VAMANDIRI", "VABNI", "VAPERMATA", "CC", "TOKOPEDIA CC", "TOKOPEDIA NON CC", "BLIBLI CC"]);
+    expect(byCode.VABCA).toMatchObject({ payment_method: "virtual_account", transaction_fee: "5000.00", amount: "155000.00" });
+    expect(byCode.CC).toMatchObject({ payment_method: "credit_card", transaction_fee: "3062.00", amount: "153062.00" });
+    expect(byCode["TOKOPEDIA CC"]).toMatchObject({ payment_method: "e_commerce", transaction_fee: "2672.00", amount: "152672.00" });
+    expect(byCode["TOKOPEDIA NON CC"]).toMatchObject({ transaction_fee: "754.00", amount: "150754.00" });
+    expect(byCode["BLIBLI CC"]).toMatchObject({ transaction_fee: "2672.00", amount: "152672.00" });
+    expect(channelsForTotal(5000)).toEqual([]);
   });
 
   it("sets the deadline to the end of the next day in WIB", () => {
@@ -74,14 +87,40 @@ describe("dummy gateway simulation", () => {
   it("locks invoices while a checkout is pending, is idempotent, and settles on the simulated callback", async () => {
     const items = [{ student_invoice_id: "11", amount: "50000.00" }, { student_invoice_id: "12", amount: "50000.00" }];
     const payment = await dummyCheckout({ invoiceIds: ["11", "12"], channel: "VABNI", idempotencyKey: "abcdef12-0000", items });
-    expect(payment).toMatchObject({ status: "pending", payment_method: "virtual_account", invoice_total: "100000.00", amount: "104000.00" });
+    expect(payment).toMatchObject({ status: "pending", payment_method: "virtual_account", invoice_total: "100000.00", amount: "105000.00" });
     expect(payment.payment_code).toMatch(/^988/);
     expect(Object.keys(dummyPendingByInvoice()).sort()).toEqual(["11", "12"]);
     const again = await dummyCheckout({ invoiceIds: ["11", "12"], channel: "VABNI", idempotencyKey: "abcdef12-0000", items });
     expect(again.id).toBe(payment.id);
-    await expect(dummyCheckout({ invoiceIds: ["12"], channel: "QRIS", idempotencyKey: "ffffffff-1111", items: [items[1]] })).rejects.toMatchObject({ code: "INVOICE_LOCKED" });
+    await expect(dummyCheckout({ invoiceIds: ["12"], channel: "CC", idempotencyKey: "ffffffff-1111", items: [items[1]] })).rejects.toMatchObject({ code: "INVOICE_LOCKED" });
     dummyMarkPaid(payment.id);
     expect((await dummyPayment(payment.id))?.status).toBe("paid");
     expect(dummyPendingByInvoice()).toEqual({});
+  });
+});
+
+describe("dummy gateway cancellation", () => {
+  const storage = new Map<string, string>();
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal("window", { sessionStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); } } });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("lets the guardian abandon a pending checkout, which unlocks its invoices", async () => {
+    const items = [{ student_invoice_id: "21", amount: "150000.00" }];
+    const payment = await dummyCheckout({ invoiceIds: ["21"], channel: "TOKOPEDIA NON CC", idempotencyKey: "12345678-aaaa", items });
+    expect(payment).toMatchObject({ payment_method: "e_commerce", amount: "150754.00", payment_code: null });
+    expect(payment.payment_link).toContain("/dashboard/payments/online/simulator?payment_id=");
+    expect(Object.keys(dummyPendingByInvoice())).toEqual(["21"]);
+    const cancelled = await dummyCancel(payment.id);
+    expect(cancelled.status).toBe("cancelled");
+    expect(dummyPendingByInvoice()).toEqual({});
+    expect((await dummyPayment(payment.id))?.status).toBe("cancelled");
+    await expect(dummyCancel(payment.id)).rejects.toMatchObject({ code: "PAYMENT_NOT_PENDING" });
+    const retry = await dummyCheckout({ invoiceIds: ["21"], channel: "VABCA", idempotencyKey: "87654321-bbbb", items });
+    expect(retry.status).toBe("pending");
+    expect(dummyMarkPaid(retry.id)?.status).toBe("paid");
+    await expect(dummyCancel(retry.id)).rejects.toMatchObject({ code: "PAYMENT_NOT_PENDING" });
   });
 });

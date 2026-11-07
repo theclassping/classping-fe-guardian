@@ -865,6 +865,25 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .gateway-instruction .primary-button svg { width: 16px; }
 .gateway-instruction .fine-note { margin: 12px 0 0; }
 .gateway-simulate { margin-top: 12px; border-style: dashed; color: #8A5300; }
+.gateway-cancelled, .gateway-returned { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 16px; border-radius: 12px; }
+.gateway-cancelled { color: #2F5E78; background: #EEF4F7; }
+.gateway-returned { color: var(--green); background: #E3F1EE; }
+.gateway-cancelled > svg, .gateway-returned > svg { flex: 0 0 auto; width: 22px; height: 22px; }
+.gateway-cancelled strong, .gateway-returned strong { display: block; font-size: 13px; }
+.gateway-cancelled p, .gateway-returned p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.gateway-cancel { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.gateway-cancel-trigger { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: #A33A2A; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.gateway-cancel-trigger:hover { text-decoration: underline; }
+.gateway-cancel-trigger svg { width: 15px; }
+.gateway-cancel-confirm { padding: 16px; border: 1px solid #F0C9C1; border-radius: 12px; background: #FFF5F3; }
+.gateway-cancel-confirm strong { display: block; color: #A33A2A; font-size: 13px; }
+.gateway-cancel-confirm p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.gateway-cancel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.danger-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: #A33A2A; color: #fff; font: 800 12px var(--font-plus-jakarta), sans-serif; cursor: pointer; }
+.danger-button:hover { background: #8C2F21; }
+.danger-button:disabled { opacity: .6; cursor: wait; }
+.gateway-simulator header p:last-child { color: var(--muted); font-size: 12px; }
+.gateway-simulator .gateway-footer { margin-top: 18px; }
 .gateway-paid { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 16px; border-radius: 12px; color: var(--green); background: #E3F1EE; }
 .gateway-paid > svg { flex: 0 0 auto; width: 24px; height: 24px; }
 .gateway-paid strong { display: block; font-size: 13px; }

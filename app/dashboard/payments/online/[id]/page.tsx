@@ -2,8 +2,8 @@ import { paymentGatewayForStudent, selectedStudentForRequest } from "@/lib/backe
 import GatewayPaymentStatus from "@/components/GatewayPaymentStatus";
 import PaymentLookupNotice from "@/components/PaymentLookupNotice";
 
-export default async function GatewayPaymentPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function GatewayPaymentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const { child, studentId } = await selectedStudentForRequest();
   const childQuery = studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${child.id}`;
   const listHref = `/dashboard/payments${childQuery}`;
@@ -11,5 +11,5 @@ export default async function GatewayPaymentPage({ params }: { params: Promise<{
   if (!gateway.enabled) {
     return <PaymentLookupNotice emoji="🔒" title="Pembayaran online belum tersedia" copy="Sekolah belum mengaktifkan pembayaran online." listHref={listHref} />;
   }
-  return <GatewayPaymentStatus paymentId={id} listHref={listHref} childQuery={childQuery} />;
+  return <GatewayPaymentStatus paymentId={id} listHref={listHref} childQuery={childQuery} returned={query.returned === "1"} />;
 }
