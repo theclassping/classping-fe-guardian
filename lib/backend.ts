@@ -6,7 +6,7 @@ import type { Activity, ChildId, Invoice } from "@/lib/data";
 import { primaryGuardianName } from "@/lib/receipt";
 import { invoicePaymentState, isVerifiedPayment, latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
-import type { GatewayMethod } from "@/lib/gateway";
+import { isDummyGatewayMode, type GatewayMethod } from "@/lib/gateway";
 
 type ApiActivity = {
   id?: number;
@@ -385,7 +385,7 @@ export async function schoolForBackend(studentId: number) {
  * In dummy gateway mode (backend not ready) the option is always shown.
  */
 export async function paymentGatewayForStudent(studentId?: number): Promise<{ enabled: boolean; branchId?: number }> {
-  if (process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_MODE === "dummy" || demoMode) return { enabled: true };
+  if (isDummyGatewayMode() || demoMode) return { enabled: true };
   if (!studentId) return { enabled: false };
   const school = await schoolForBackend(studentId).catch(() => null);
   return { enabled: Boolean(school?.payment_gateway_enabled), branchId: school?.branch_id };

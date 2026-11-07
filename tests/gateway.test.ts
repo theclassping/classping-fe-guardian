@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkoutHref, groupChannels, isExpired, parseInvoiceIds, timeLeft, type GatewayChannel } from "@/lib/gateway";
+import { checkoutHref, groupChannels, isDummyGatewayMode, isExpired, parseInvoiceIds, timeLeft, type GatewayChannel } from "@/lib/gateway";
 import { channelsForTotal, deadlineFor, dummyCheckout, dummyMarkPaid, dummyPayment, dummyPendingByInvoice } from "@/lib/gatewayDummy";
 import { isPayableOnline } from "@/components/PaymentList";
 import type { Invoice } from "@/lib/data";
@@ -15,6 +15,11 @@ describe("gateway helpers", () => {
     expect(parseInvoiceIds("11, 12,11,,13")).toEqual(["11", "12", "13"]);
     expect(parseInvoiceIds(["1", "2"])).toEqual(["1", "2"]);
     expect(checkoutHref(["11", "12"], "?student_id=6")).toBe("/dashboard/payments/checkout?student_id=6&invoices=11%2C12");
+  });
+
+  it("reads the dummy flag leniently from hosting dashboards", () => {
+    for (const value of ["dummy", " Dummy ", '"dummy"', "'dummy'"]) expect(isDummyGatewayMode(value)).toBe(true);
+    for (const value of ["api", "", undefined, "dummy mode"]) expect(isDummyGatewayMode(value)).toBe(false);
   });
 
   it("groups channels by method in VA → QRIS → card order and drops empty groups", () => {

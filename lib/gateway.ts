@@ -76,8 +76,13 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   PROVIDER_UNAVAILABLE: "Layanan pembayaran sedang tidak dapat dihubungi. Silakan coba lagi.",
 };
 
+/** Tolerates values saved with quotes, spaces, or different casing in hosting dashboards. */
+export function isDummyGatewayMode(value = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_MODE) {
+  return (value || "").trim().replace(/^["']|["']$/g, "").toLowerCase() === "dummy";
+}
+
 export function gatewayMode(): "api" | "dummy" {
-  return process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_MODE === "dummy" ? "dummy" : "api";
+  return isDummyGatewayMode() ? "dummy" : "api";
 }
 
 export function rupiah(value: string | number) {
