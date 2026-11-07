@@ -17,6 +17,8 @@ describe("ClassPing Guardian feature smoke coverage", () => {
       "app/dashboard/assessments/[slug]/page.tsx",
       "app/dashboard/payments/page.tsx",
       "app/dashboard/payments/[slug]/page.tsx",
+      "app/dashboard/payments/checkout/page.tsx",
+      "app/dashboard/payments/online/[id]/page.tsx",
       "app/dashboard/profile/page.tsx",
       "app/dashboard/settings/page.tsx",
       "app/dashboard/school/page.tsx",
@@ -49,7 +51,8 @@ describe("ClassPing Guardian feature smoke coverage", () => {
     expect(read("components/ActivityList.tsx")).toContain("setQuery");
     expect(read("components/ActivityList.tsx")).toContain("downloadActivity");
     expect(read("components/AssessmentList.tsx")).toContain("setQuery");
-    expect(read("app/dashboard/payments/[slug]/page.tsx")).toContain("PaymentReceiptDialog");
+    expect(read("app/dashboard/payments/[slug]/page.tsx")).toContain("InvoicePaymentActions");
+    expect(read("components/InvoicePaymentActions.tsx")).toContain("PaymentReceiptDialog");
     expect(read("components/NotificationSettings.tsx")).toContain("setSettings");
   });
 

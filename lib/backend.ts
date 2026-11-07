@@ -6,6 +6,7 @@ import type { Activity, ChildId, Invoice } from "@/lib/data";
 import { primaryGuardianName } from "@/lib/receipt";
 import { invoicePaymentState, isVerifiedPayment, latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
+import type { GatewayMethod } from "@/lib/gateway";
 
 type ApiActivity = {
   id?: number;
@@ -93,6 +94,8 @@ type ApiInvoice = {
   payment_date?: string;
   payment?: ApiPayment | null;
   payments?: ApiPayment[];
+  payable_via_gateway?: boolean;
+  pending_gateway_payment?: { id?: number | string; payment_no?: string; channel_name?: string; payment_method?: string; expires_at?: string } | null;
 };
 
 export type GuardianNotification = {
@@ -106,11 +109,11 @@ export type GuardianNotification = {
 
 type ApiStudent = { id?: number; first_name?: string; middle_name?: string; last_name?: string; nickname?: string; location_id?: number | string | null; class_students?: ApiClassStudent[]; student_guardians?: ApiStudentGuardian[] };
 export type ApiStudentGuardian = { id?: number; guardian_id?: number; guardian_name?: string; relationship?: string; is_primary?: boolean };
-type ApiBranch = { id?: number | string; school?: number | string; name?: string; code?: string; address?: string; phone?: string; email?: string; location_id?: number | string };
+type ApiBranch = { id?: number | string; school?: number | string; name?: string; code?: string; address?: string; phone?: string; email?: string; location_id?: number | string; is_payment_gateway_enabled?: boolean };
 type ApiSchool = { id?: number; name?: string; register_number?: string; image_data?: string; description?: string; branches?: ApiBranch[] };
 type ApiAcademicYear = { id?: number | string; branch?: number | string; name?: string; is_current?: boolean };
 type ApiGuardian = { id?: number | string; user?: number | string | { id?: number | string }; user_id?: number | string; name?: string; email?: string; phone_number?: string };
-export type GuardianSchool = ApiSchool & { address?: string; phone_number?: string; email?: string; branch_name?: string; academic_year?: string };
+export type GuardianSchool = ApiSchool & { address?: string; phone_number?: string; email?: string; branch_name?: string; branch_id?: number; academic_year?: string; payment_gateway_enabled?: boolean };
 
 const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
 /** Sample data is only shown when no backend is configured at all; a failing backend must never be disguised as demo content. */
@@ -371,8 +374,21 @@ export async function schoolForBackend(studentId: number) {
     phone_number: branch.phone,
     email: branch.email,
     branch_name: branch.name,
+    branch_id: Number(branch.id) || undefined,
     academic_year: academicYear,
+    payment_gateway_enabled: Boolean(branch.is_payment_gateway_enabled),
   } satisfies GuardianSchool;
+}
+
+/**
+ * Whether the selected child's branch offers online payment through the gateway.
+ * In dummy gateway mode (backend not ready) the option is always shown.
+ */
+export async function paymentGatewayForStudent(studentId?: number): Promise<{ enabled: boolean; branchId?: number }> {
+  if (process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_MODE === "dummy" || demoMode) return { enabled: true };
+  if (!studentId) return { enabled: false };
+  const school = await schoolForBackend(studentId).catch(() => null);
+  return { enabled: Boolean(school?.payment_gateway_enabled), branchId: school?.branch_id };
 }
 
 export async function guardianForBackend(guardianId?: number, userId?: number, email?: string) {
@@ -586,6 +602,16 @@ function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment |
     proofUrl: verified ? verifiedPaymentProofUrl(payment) : undefined,
     invoiceNo: item.invoice_no?.trim() || undefined,
     invoiceDate: item.invoice_date || item.created_at,
+    studentId: item.student_id,
+    // Until the backend exposes `payable_via_gateway`, an open bill without a manual payment in progress is payable online.
+    payableViaGateway: item.payable_via_gateway ?? (state === "unpaid" && !item.pending_gateway_payment),
+    pendingGatewayPayment: item.pending_gateway_payment ? {
+      id: item.pending_gateway_payment.id ?? "",
+      paymentNo: item.pending_gateway_payment.payment_no,
+      channelName: item.pending_gateway_payment.channel_name,
+      paymentMethod: item.pending_gateway_payment.payment_method as GatewayMethod | undefined,
+      expiresAt: item.pending_gateway_payment.expires_at,
+    } : undefined,
   } as Invoice;
 }
 

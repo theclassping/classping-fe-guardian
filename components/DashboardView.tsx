@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Images, ReceiptText, Sparkles } from "lucide-react";
 import BillReminderDialog from "@/components/BillReminderDialog";
-import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
+import InvoicePaymentActions from "@/components/InvoicePaymentActions";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
 import PresignedImage from "@/components/PresignedImage";
 import type { Activity, ChildProfile, Invoice } from "@/lib/data";
@@ -19,10 +19,12 @@ export type DashboardViewProps = {
   childQuery: string;
   invoices: Invoice[] | null;
   activities: Activity[];
+  /** Whether the child's branch offers online payment through the gateway. */
+  gatewayEnabled?: boolean;
 };
 
 /** Pure rendering of the guardian home; the page loads the data, previews can pass fixtures. */
-export default function DashboardView({ guardianName, child, childQuery, invoices, activities }: DashboardViewProps) {
+export default function DashboardView({ guardianName, child, childQuery, invoices, activities, gatewayEnabled = false }: DashboardViewProps) {
   const openBill = latestOpenInvoice(invoices);
   const [latest, ...more] = recentActivities(activities, 4);
   const latestImage = latest?.imageUrls?.[0];
@@ -68,8 +70,8 @@ export default function DashboardView({ guardianName, child, childQuery, invoice
               )}
               {openBill.state === "unpaid" ? (
                 <>
-                  <PaymentReceiptDialog child={child} invoices={[openBill.invoice]} triggerId={PAY_TRIGGER_ID} triggerLabel={openBill.invoice.rejectionReason ? "Unggah bukti pembayaran baru" : "Lanjutkan pembayaran"} />
-                  <p className="gd-bill-hint">Transfer ke rekening sekolah, lalu unggah buktinya di sini. Verifikasi biasanya selesai dalam 1 hari kerja.</p>
+                  <InvoicePaymentActions child={child} invoice={openBill.invoice} gatewayEnabled={gatewayEnabled} childQuery={childQuery} triggerId={PAY_TRIGGER_ID} />
+                  <p className="gd-bill-hint">{gatewayEnabled ? "Bayar online agar tagihan langsung lunas, atau transfer ke rekening sekolah lalu unggah buktinya. Verifikasi manual biasanya selesai dalam 1 hari kerja." : "Transfer ke rekening sekolah, lalu unggah buktinya di sini. Verifikasi biasanya selesai dalam 1 hari kerja."}</p>
                   <BillReminderDialog childName={nickname} feeType={openBill.invoice.feeType} month={openBill.invoice.month} amount={openBill.invoice.amount} dueDate={openBill.invoice.dueDate} detailHref={`/dashboard/payments/${openBill.invoice.slug}${childQuery}`} triggerId={PAY_TRIGGER_ID} />
                 </>
               ) : (

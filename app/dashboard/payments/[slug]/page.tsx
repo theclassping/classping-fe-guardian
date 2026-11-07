@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowLeft, CalendarClock, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { invoices } from "@/lib/data";
-import { invoiceLookupForBackend, selectedStudentForRequest } from "@/lib/backend";
+import { invoiceLookupForBackend, paymentGatewayForStudent, selectedStudentForRequest } from "@/lib/backend";
+import InvoicePaymentActions from "@/components/InvoicePaymentActions";
 import PaymentLookupNotice from "@/components/PaymentLookupNotice";
-import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
 import PaymentReceiptCard from "@/components/PaymentReceiptCard";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
 import { invoicePaymentState } from "@/lib/payments";
@@ -19,7 +19,11 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
   const { child, studentId } = await selectedStudentForRequest();
   const fallbackInvoice = invoices.find((item) => item.slug === slug);
   const listHref = studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`;
-  const lookup = await invoiceLookupForBackend(slug, child.id, fallbackInvoice);
+  const [lookup, gateway] = await Promise.all([
+    invoiceLookupForBackend(slug, child.id, fallbackInvoice),
+    paymentGatewayForStudent(studentId ? Number(studentId) : undefined),
+  ]);
+  const childQuery = studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${child.id}`;
   if (lookup.state === "missing") notFound();
   if (lookup.state === "unavailable") {
     return (
@@ -50,7 +54,7 @@ export default async function PaymentDetail({ params }: { params: Promise<{ slug
           </div>
         )}
         {paymentState === "unpaid" ? (
-          <PaymentReceiptDialog child={child} invoices={[invoice]} triggerLabel={invoice.rejectionReason ? "Unggah bukti pembayaran baru" : "Lanjutkan pembayaran"} />
+          <InvoicePaymentActions child={child} invoice={invoice} gatewayEnabled={gateway.enabled} childQuery={childQuery} />
         ) : paymentState === "submitted" ? (
           <PaymentVerificationStatus />
         ) : receipt ? (

@@ -69,6 +69,12 @@ export type Invoice = {
   invoiceNo?: string;
   /** ISO invoice date, used to pick the latest bill. */
   invoiceDate?: string;
+  /** Backend student id, used to scope online payments. */
+  studentId?: number;
+  /** `payable_via_gateway` from the API: unpaid/overdue, not locked, no manual payment in progress. */
+  payableViaGateway?: boolean;
+  /** `pending_gateway_payment` from the API: the checkout that currently locks this invoice. */
+  pendingGatewayPayment?: import("@/lib/gateway").PendingGatewayPayment;
 };
 
 export const children: Record<ChildId, ChildProfile> = {
