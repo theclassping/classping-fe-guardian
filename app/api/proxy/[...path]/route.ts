@@ -4,6 +4,13 @@ import { authorizeGuardianMutation } from "@/features/family/guardian-access";
 import { errorResponse, relayResponse } from "@/lib/http";
 import { SESSION_COOKIES } from "@/lib/session";
 
+/**
+ * Browser request headers the backend reads, passed through unchanged. Everything else (cookies, the
+ * browser's own Authorization, host headers) stays behind; the session's token is added instead.
+ * Idempotency-Key: POST gateway/checkout/ rejects a checkout without it, so a retried click can't pay twice.
+ */
+const FORWARDED_HEADERS = ["Content-Type", "Idempotency-Key"];
+
 /** Forwards /api/proxy/<path> from the browser to the Django API with the session's access token. */
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
@@ -14,8 +21,10 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (!accessToken) return errorResponse("Authentication credentials were not provided.", 401);
 
   const headers = new Headers({ Authorization: `Bearer ${accessToken}` });
-  const contentType = request.headers.get("content-type");
-  if (contentType) headers.set("Content-Type", contentType);
+  for (const name of FORWARDED_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   try {
     const rejection = await authorizeGuardianMutation(request, path, apiBase, accessToken);
