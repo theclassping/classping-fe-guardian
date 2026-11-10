@@ -19,12 +19,12 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Brand from "@/components/Brand";
-import LogoutButton from "@/components/LogoutButton";
+import LogoutButton from "@/features/auth/components/LogoutButton";
 import type { GuardianIdentity } from "@/lib/auth";
-import type { GuardianNotification, GuardianSchool } from "@/lib/backend";
-import { getChild, type ChildProfile } from "@/lib/data";
+import type { GuardianNotification } from "@/features/notifications/api";
+import { UNKNOWN_CHILD, type ChildProfile, type GuardianSchool } from "@/features/family/types";
 import { initialsOf } from "@/lib/format";
-import { useStoredIds } from "@/components/useStoredIds";
+import { useStoredIds } from "@/features/notifications/useStoredIds";
 
 type NavItem = { href: string; label: string; icon: typeof Settings; badge?: string; exact?: boolean };
 
@@ -40,20 +40,22 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   const schoolEmail = school?.email?.trim();
   const [selectedStudentId, setSelectedStudentId] = useState<number | undefined>(currentStudentId ?? identity.student_id ?? identity.students?.[0]?.id);
   const studentId = selectedStudentId ? String(selectedStudentId) : null;
+  /** Value of the selected child in the contact form's "related to" select. */
+  const childOption = studentId || "student";
   const linkedStudents = identity.students || [];
   const selectedStudent = linkedStudents.find((student) => student.id === selectedStudentId);
   // The layout loads the selected child from the backend. Right after switching children, until the
   // refreshed layout arrives, show the newly selected child from the names saved at login.
   const child = useMemo(() => {
     if (currentChild && currentStudentId === selectedStudentId) return currentChild;
-    const base = currentChild || getChild();
+    const base = currentChild || UNKNOWN_CHILD;
     return selectedStudent
       ? { ...base, name: selectedStudent.name, firstName: selectedStudent.name.split(" ")[0], nickname: selectedStudent.nickname, initials: selectedStudent.initials }
       : base;
   }, [currentChild, currentStudentId, selectedStudentId, selectedStudent]);
   const contactStudents = linkedStudents.length
     ? linkedStudents.map((student) => ({ value: String(student.id), name: student.id === selectedStudentId ? child.name : student.name }))
-    : studentId ? [{ value: studentId, name: child.name }] : [{ value: child.id, name: child.name }];
+    : [{ value: childOption, name: child.name }];
   const [selectingStudentId, setSelectingStudentId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -63,7 +65,7 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   const notifications = fetchedNotifications?.source === initialNotifications ? fetchedNotifications.items : initialNotifications;
   const [contactOpen, setContactOpen] = useState(false);
   const [category, setCategory] = useState("profile");
-  const [relatedTo, setRelatedTo] = useState<string>(studentId || child.id);
+  const [relatedTo, setRelatedTo] = useState<string>(childOption);
   const [subject, setSubject] = useState("");
   const menuArea = useRef<HTMLDivElement>(null);
   const [readNotificationIds, markNotificationsRead] = useStoredIds(`classping:guardian:read-notifications:${studentId || "current"}`);
@@ -117,8 +119,8 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
 
   function openContact() {
     setCategory("profile");
-    setRelatedTo(studentId || child.id);
-    setSubject(suggestedSubject("profile", studentId || child.id));
+    setRelatedTo(childOption);
+    setSubject(suggestedSubject("profile", childOption));
     setContactOpen(true);
   }
 

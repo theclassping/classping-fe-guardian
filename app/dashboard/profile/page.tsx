@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Mail, Phone, UserRound } from "lucide-react";
-import { guardianForBackend, linkedStudentsForGuardian, sessionIdentity, sessionStudentId } from "@/lib/backend";
+import { guardianForBackend, linkedStudentsForGuardian, sessionIdentity, sessionStudentId } from "@/features/family/api";
 import { initialsOf } from "@/lib/format";
-import LinkedStudentActivityLink from "@/components/LinkedStudentActivityLink";
+import LinkedStudentActivityLink from "@/features/family/components/LinkedStudentActivityLink";
 import { redirect } from "next/navigation";
 
 export default async function GuardianProfilePage({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {

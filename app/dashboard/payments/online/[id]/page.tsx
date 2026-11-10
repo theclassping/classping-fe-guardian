@@ -1,6 +1,6 @@
-import { paymentGatewayForStudent, selectedStudentForRequest } from "@/lib/backend";
-import GatewayPaymentStatus from "@/components/GatewayPaymentStatus";
-import PaymentLookupNotice from "@/components/PaymentLookupNotice";
+import { paymentGatewayForStudent, selectedStudentForRequest } from "@/features/family/api";
+import GatewayPaymentStatus from "@/features/payments/components/GatewayPaymentStatus";
+import PaymentLookupNotice from "@/features/payments/components/PaymentLookupNotice";
 
 export default async function GatewayPaymentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);

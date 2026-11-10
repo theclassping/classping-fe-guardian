@@ -1,6 +1,6 @@
-import { selectedStudentForRequest } from "@/lib/backend";
-import { returnReference } from "@/lib/gateway";
-import GatewayReturn from "@/components/GatewayReturn";
+import { selectedStudentForRequest } from "@/features/family/api";
+import { returnReference } from "@/features/payments/gateway";
+import GatewayReturn from "@/features/payments/components/GatewayReturn";
 
 /**
  * Landing page for the provider's return URL after the parent pays on an

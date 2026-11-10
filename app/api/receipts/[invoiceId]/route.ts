@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { invoiceLookupForBackend, primaryGuardianNameForStudent, selectedStudentForRequest, sessionIdentity } from "@/lib/backend";
+import { invoiceLookupForBackend } from "@/features/payments/api";
+import { primaryGuardianNameForStudent, selectedStudentForRequest, sessionIdentity } from "@/features/family/api";
 import { errorResponse } from "@/lib/http";
-import { paymentReceiptFor, receiptFileName } from "@/lib/receipt";
-import { buildReceiptPdf } from "@/lib/receiptPdf";
+import { paymentReceiptFor, receiptFileName } from "@/features/payments/receipt";
+import { buildReceiptPdf } from "@/features/payments/receipt-pdf";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ invoiceId: string }> }) {
   const { invoiceId } = await context.params;
   const { child, studentId, numericStudentId } = await selectedStudentForRequest();
-  const lookup = await invoiceLookupForBackend(invoiceId, child.id);
+  const lookup = await invoiceLookupForBackend(invoiceId);
   if (lookup.state === "missing") return errorResponse("Tagihan tidak ditemukan.", 404);
   if (lookup.state === "unavailable") return errorResponse("Tagihan belum dapat dimuat.", 503);
 

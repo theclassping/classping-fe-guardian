@@ -7,7 +7,7 @@ export function proxyUrl(path: string) {
   return `/api/proxy/${path.replace(/^\/+/, "")}`;
 }
 
-/** Query string that keeps the selected child on dashboard links ("?student_id=6"; "?child=…" before a student is known). */
-export function childQueryFor(studentId: string | undefined, childId: string) {
-  return studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${childId}`;
+/** Query string that keeps the selected child on dashboard links: "?student_id=6", or "" before a student is known. */
+export function childQueryFor(studentId: string | undefined) {
+  return studentId ? `?student_id=${encodeURIComponent(studentId)}` : "";
 }

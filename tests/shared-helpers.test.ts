@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { linkedStudentIds } from "@/lib/auth";
 import { accessTokenClaims, decodeBase64UrlJson } from "@/lib/base64url";
 import { asSentence, formatDateTime, formatLongDate, formatMonthYear, fullName, initialsOf, rupiah, titleize } from "@/lib/format";
-import { guardianUserId } from "@/lib/guardians";
-import { isPayableOnline, remainingAmount, totalRemaining } from "@/lib/payments";
+import { guardianUserId } from "@/features/family/guardians";
+import { isPayableOnline, remainingAmount, totalRemaining } from "@/features/payments/helpers";
 import { records, recordsOrNull } from "@/lib/records";
 import { childQueryFor, proxyUrl } from "@/lib/routes";
 
@@ -51,8 +51,8 @@ describe("API helpers", () => {
 
   it("builds proxy URLs and the child query", () => {
     expect(proxyUrl("/payments?student_invoice_id=3")).toBe("/api/proxy/payments?student_invoice_id=3");
-    expect(childQueryFor("13", "alya")).toBe("?student_id=13");
-    expect(childQueryFor(undefined, "alya")).toBe("?child=alya");
+    expect(childQueryFor("13")).toBe("?student_id=13");
+    expect(childQueryFor(undefined)).toBe("");
   });
 
   it("decodes JWT claims and base64url JSON without throwing", () => {
@@ -82,7 +82,7 @@ describe("payment amounts", () => {
   });
 
   it("offers online payment only for open, unlocked bills", () => {
-    const invoice = { childId: "alya" as const, slug: "1", month: "", feeType: "", amount: "", dueDate: "", status: "Unpaid", statusTone: "warning" as const, method: "", paidAt: "", fine: "", ...bill };
+    const invoice = { slug: "1", month: "", feeType: "", amount: "", dueDate: "", status: "Unpaid", statusTone: "warning" as const, method: "", paidAt: "", fine: "", ...bill };
     expect(isPayableOnline(invoice)).toBe(true);
     expect(isPayableOnline({ ...invoice, pendingGatewayPayment: { id: 5 } })).toBe(false);
   });

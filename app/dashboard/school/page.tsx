@@ -1,6 +1,6 @@
 import { Clock3, Mail, MapPin, Phone, ShieldCheck, UsersRound } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { schoolForBackend, sessionStudentId } from "@/lib/backend";
+import { schoolForBackend, sessionStudentId } from "@/features/family/api";
 import { initialsOf } from "@/lib/format";
 
 export default async function SchoolPage() {

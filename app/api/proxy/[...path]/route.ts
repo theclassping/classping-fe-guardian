@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { backendOrigin } from "@/lib/env";
-import { authorizeGuardianMutation } from "@/lib/guardian-access";
+import { authorizeGuardianMutation } from "@/features/family/guardian-access";
 import { errorResponse, relayResponse } from "@/lib/http";
 import { SESSION_COOKIES } from "@/lib/session";
 

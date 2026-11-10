@@ -1,25 +1,13 @@
 import { describe, expect, it } from "vitest";
-import {
-  assessmentsFor,
-  children,
-  getChild,
-  unselectedChild,
-} from "@/lib/data";
+import { placeholderAssessments } from "@/features/assessments/placeholder";
+import { UNKNOWN_CHILD } from "@/features/family/types";
 
-describe("child data selectors", () => {
-  it("uses a neutral profile when no child is selected", () => {
-    expect(getChild()).toEqual(unselectedChild);
-    expect(getChild("unknown")).toEqual(unselectedChild);
-    expect(getChild().name).toBe("Siswa");
+describe("placeholder data", () => {
+  it("shows a neutral child profile without invented details while the child cannot be loaded", () => {
+    expect(UNKNOWN_CHILD).toEqual({ name: "Siswa", firstName: "Siswa", initials: "S", className: "Kelas belum tersedia" });
   });
 
-  it("selects Jisindo only for the jisindo id", () => {
-    expect(getChild("jisindo")).toEqual(children.jisindo);
-  });
-
-  it("returns only the placeholder assessments of the requested child", () => {
-    expect(assessmentsFor("jisindo").every((item) => item.childId === "jisindo")).toBe(true);
-    expect(assessmentsFor("alya")).toHaveLength(2);
-    expect(assessmentsFor("jisindo")).toHaveLength(2);
+  it("keeps the two sample assessment reports until assessments are connected to the backend", () => {
+    expect(placeholderAssessments.map((item) => item.slug)).toEqual(["perkembangan-semester-satu", "observasi-motorik-halus"]);
   });
 });

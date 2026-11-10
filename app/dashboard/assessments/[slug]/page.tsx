@@ -1,16 +1,12 @@
-import { selectedStudentForRequest } from "@/lib/backend";
+import { selectedStudentForRequest } from "@/features/family/api";
 import Link from "next/link";
 import { ArrowLeft, Award, MessageCircleHeart } from "lucide-react";
 import { notFound } from "next/navigation";
-import { assessments } from "@/lib/data";
-
-export function generateStaticParams() {
-  return assessments.map(({ slug }) => ({ slug }));
-}
+import { placeholderAssessments } from "@/features/assessments/placeholder";
 
 export default async function AssessmentDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const assessment = assessments.find((item) => item.slug === slug);
+  const assessment = placeholderAssessments.find((item) => item.slug === slug);
   if (!assessment) notFound();
   const { child, childQuery } = await selectedStudentForRequest();
   return (

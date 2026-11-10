@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayReturnHref, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/lib/gateway";
-import { isPayableOnline } from "@/lib/payments";
-import type { Invoice } from "@/lib/data";
+import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayReturnHref, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
+import { isPayableOnline } from "@/features/payments/helpers";
+import type { Invoice } from "@/features/payments/types";
 
 const invoice: Invoice = {
-  childId: "alya", slug: "23", month: "Oktober 2026", feeType: "SPP", amount: "Rp 20.000",
+  slug: "23", month: "Oktober 2026", feeType: "SPP", amount: "Rp 20.000",
   billAmount: 20000, paidAmount: 0, dueDate: "31 Oktober 2026", status: "Unpaid",
   statusTone: "warning", method: "—", paidAt: "—", fine: "Tidak ada",
 };

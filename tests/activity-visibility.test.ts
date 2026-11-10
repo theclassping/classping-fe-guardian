@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { photosForStudent, studentCaption } from "@/lib/activityVisibility";
+import { photosForStudent, studentCaption } from "@/features/activities/visibility";
 describe("private student photos and shared group photos", () => {
   const photos = [...Array.from({ length: 7 }, (_, i) => ({ image_url: `student-${i+1}`, student_id: i+1, tag_state: "individual" as const })), ...Array.from({ length: 3 }, (_, i) => ({ image_url: `group-${i+1}`, student_id: null, tag_state: "group" as const }))];
   it("shows Mark's photo and all three group photos", () => {

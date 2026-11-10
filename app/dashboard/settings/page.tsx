@@ -1,6 +1,6 @@
 import PageHeader from "@/components/PageHeader";
-import ProfileSettings from "@/components/ProfileSettings";
-import { selectedStudentForRequest, sessionIdentity } from "@/lib/backend";
+import ProfileSettings from "@/features/family/components/ProfileSettings";
+import { selectedStudentForRequest, sessionIdentity } from "@/features/family/api";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {

@@ -14,7 +14,7 @@ import {
   isDayKey,
   schoolWeekOf,
   shiftDay,
-} from "@/lib/activityFilter";
+} from "@/features/activities/filter";
 
 const at = (occurredAt: string, title = occurredAt) => ({ title, date: "", occurredAt });
 

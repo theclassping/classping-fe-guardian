@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import GuardianShell from "@/components/layout/GuardianShell";
-import { notificationsForBackend, schoolForBackend, sessionIdentity, sessionStudentId, studentForBackend } from "@/lib/backend";
-import { getChild } from "@/lib/data";
+import { notificationsForBackend } from "@/features/notifications/api";
+import { schoolForBackend, sessionIdentity, sessionStudentId, studentForBackend } from "@/features/family/api";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const identity = await sessionIdentity();
@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
   const currentStudentId = await sessionStudentId();
   const [currentChild, school, notifications] = currentStudentId
-    ? await Promise.all([studentForBackend(currentStudentId, getChild()), schoolForBackend(currentStudentId), notificationsForBackend(currentStudentId)])
+    ? await Promise.all([studentForBackend(currentStudentId), schoolForBackend(currentStudentId), notificationsForBackend(currentStudentId)])
     : [undefined, null, []];
   return <GuardianShell identity={identity} currentStudentId={currentStudentId} currentChild={currentChild} school={school} notifications={notifications}>{children}</GuardianShell>;
 }

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getChild } from "@/lib/data";
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -19,7 +18,7 @@ function jsonResponse(payload: unknown, status = 200) {
 async function loadBackend() {
   vi.resetModules();
   vi.stubEnv("DJANGO_API_URL", apiOrigin);
-  return import("@/lib/backend");
+  return import("@/features/family/api");
 }
 
 const currentClass = { id: 200, name: "Class B", branch: 9, branch_name: "North Campus", academic_year: 3 };
@@ -94,7 +93,7 @@ describe("guardian context from GET /api/parent/context/", () => {
     payloads[contextUrl(42)] = context;
     const { studentForBackend } = await loadBackend();
 
-    expect(await studentForBackend(42, getChild())).toMatchObject({
+    expect(await studentForBackend(42)).toMatchObject({
       name: "Gita Gateway",
       firstName: "Gita",
       nickname: "Gigi",
@@ -107,7 +106,7 @@ describe("guardian context from GET /api/parent/context/", () => {
 
   it("falls back to neutral values when the context cannot be read", async () => {
     const { studentForBackend } = await loadBackend();
-    expect(await studentForBackend(42, getChild())).toMatchObject({ name: "Siswa", className: "Kelas belum tersedia", classId: undefined });
+    expect(await studentForBackend(42)).toMatchObject({ name: "Siswa", className: "Kelas belum tersedia", classId: undefined });
   });
 
   it("answers the online-payment switch, the receipt guardian and the student list from the same context", async () => {

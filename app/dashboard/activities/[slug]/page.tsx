@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, LockKeyhole, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
-import { activityForBackend, selectedStudentForRequest } from "@/lib/backend";
-import ActivityMediaSlider from "@/components/ActivityMediaSlider";
+import { activityForBackend } from "@/features/activities/api";
+import { selectedStudentForRequest } from "@/features/family/api";
+import ActivityMediaSlider from "@/features/activities/components/ActivityMediaSlider";
 
 export default async function ActivityDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { child, numericStudentId } = await selectedStudentForRequest();
-  const activity = await activityForBackend(slug, child.id, numericStudentId);
+  const activity = await activityForBackend(slug, numericStudentId);
   if (!activity) notFound();
 
   return (

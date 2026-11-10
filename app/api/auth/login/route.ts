@@ -3,7 +3,7 @@ import { encodeIdentity, type GuardianIdentity, type LinkedStudent } from "@/lib
 import { accessTokenClaims } from "@/lib/base64url";
 import { backendOrigin } from "@/lib/env";
 import { fullName, initialsOf } from "@/lib/format";
-import { guardianUserId } from "@/lib/guardians";
+import { guardianUserId } from "@/features/family/guardians";
 import { errorResponse } from "@/lib/http";
 import { records } from "@/lib/records";
 import { SESSION_COOKIES, sessionCookieOptions } from "@/lib/session";

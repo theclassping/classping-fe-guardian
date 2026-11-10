@@ -1,7 +1,8 @@
-import { invoicesForBackend, paymentGatewayForStudent, selectedStudentForRequest } from "@/lib/backend";
-import { parseInvoiceIds } from "@/lib/gateway";
-import GatewayCheckout from "@/components/GatewayCheckout";
-import PaymentLookupNotice from "@/components/PaymentLookupNotice";
+import { invoicesForBackend } from "@/features/payments/api";
+import { paymentGatewayForStudent, selectedStudentForRequest } from "@/features/family/api";
+import { parseInvoiceIds } from "@/features/payments/gateway";
+import GatewayCheckout from "@/features/payments/components/GatewayCheckout";
+import PaymentLookupNotice from "@/features/payments/components/PaymentLookupNotice";
 
 export default async function GatewayCheckoutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
@@ -12,7 +13,7 @@ export default async function GatewayCheckoutPage({ searchParams }: { searchPara
   if (!gateway.enabled) {
     return <PaymentLookupNotice emoji="🔒" title="Pembayaran online belum tersedia" copy="Sekolah belum mengaktifkan pembayaran online. Anda tetap dapat membayar dengan transfer dan mengunggah bukti pembayaran." listHref={listHref} />;
   }
-  const invoices = await invoicesForBackend(child.id, numericStudentId);
+  const invoices = await invoicesForBackend(numericStudentId);
   if (!invoices) {
     return <PaymentLookupNotice emoji="⏳" title="Tagihan belum dapat dimuat" copy="Koneksi ke server sekolah sedang terganggu. Silakan coba lagi beberapa saat." listHref={listHref} retryHref={`/dashboard/payments/checkout?${new URLSearchParams({ ...(studentId ? { student_id: studentId } : {}), invoices: ids.join(",") })}`} />;
   }
