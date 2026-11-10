@@ -1,13 +1,10 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import GuardianShell from "@/components/layout/GuardianShell";
-import { decodeIdentity } from "@/lib/auth";
-import { notificationsForBackend, schoolForBackend, sessionStudentId, studentForBackend } from "@/lib/backend";
+import { notificationsForBackend, schoolForBackend, sessionIdentity, sessionStudentId, studentForBackend } from "@/lib/backend";
 import { getChild } from "@/lib/data";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const identity = decodeIdentity(cookieStore.get("guardian_identity")?.value);
+  const identity = await sessionIdentity();
   if (!identity || (!identity.student_id && !identity.students?.length)) {
     redirect("/login");
   }

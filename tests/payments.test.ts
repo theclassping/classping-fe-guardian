@@ -55,7 +55,7 @@ describe("guardian payment lifecycle", () => {
     payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [record];
     payloads[`${apiOrigin}/api/student-invoices/23/`] = record;
     const { invoicesForBackend, invoiceForBackend } = await import("@/lib/backend");
-    const items = await invoicesForBackend("alya", [], 6);
+    const items = await invoicesForBackend("alya", 6);
     const detail = await invoiceForBackend("23", "alya");
     expect(items?.[0].feeType).toBe("Seragam");
     expect(detail?.feeType).toBe(items?.[0].feeType);
@@ -105,7 +105,7 @@ describe("guardian payment lifecycle", () => {
   it("maps the backend's singular payment field in the bill list", async () => {
     payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [{ ...invoiceRecord, payment: rejectedPayment }];
     const { invoicesForBackend } = await import("@/lib/backend");
-    const mapped = await invoicesForBackend("alya", [], 6);
+    const mapped = await invoicesForBackend("alya", 6);
     expect(mapped?.[0]).toMatchObject({ status: "Unpaid", statusTone: "warning", paymentSubmitted: false, paymentId: 12 });
     expect(mapped?.[0].proofUrl).toBeUndefined();
   });
@@ -124,7 +124,7 @@ describe("guardian payment lifecycle", () => {
       ],
     };
     const { invoicesForBackend } = await import("@/lib/backend");
-    const [open, locked, unknown] = (await invoicesForBackend("alya", [], 6)) || [];
+    const [open, locked, unknown] = (await invoicesForBackend("alya", 6)) || [];
 
     expect(open).toMatchObject({ slug: "23", payableViaGateway: true, pendingGatewayPayment: undefined });
     expect(locked).toMatchObject({ slug: "24", payableViaGateway: false, pendingGatewayPayment: { id: 5, expiresAt: "2026-11-11T11:00:00+07:00" } });
@@ -144,7 +144,7 @@ describe("guardian payment lifecycle", () => {
   it("keeps the bills when gateway/invoices cannot be read", async () => {
     payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [invoiceRecord];
     const { invoicesForBackend } = await import("@/lib/backend");
-    expect(await invoicesForBackend("alya", [], 6)).toMatchObject([{ slug: "23", payableViaGateway: true }]);
+    expect(await invoicesForBackend("alya", 6)).toMatchObject([{ slug: "23", payableViaGateway: true }]);
   });
 
   it("explains rejection and the retry action in the guardian notification", async () => {
@@ -197,20 +197,20 @@ describe("proof submission", () => {
   const imageData = { object_key: "2026/10/replacement.png", original_name: "replacement.png" };
 
   it("attaches a replacement to the existing payment instead of creating a duplicate", async () => {
-    payloads["/api/proxy/payment-proofs/"] = { id: 2 };
+    payloads["/api/proxy/payment-proofs"] = { id: 2 };
     await submitPaymentProof({ ...invoice, paymentId: 12 }, "bank_transfer", imageData);
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/proxy/payment-proofs/");
+    expect(url).toBe("/api/proxy/payment-proofs");
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body)).toEqual({ payment_id: 12, image_data: imageData });
   });
 
   it("creates the initial payment with downloadable storage metadata", async () => {
-    payloads["/api/proxy/payments/"] = { id: 12 };
+    payloads["/api/proxy/payments"] = { id: 12 };
     await submitPaymentProof(invoice, "bank_transfer", imageData);
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/proxy/payments/");
+    expect(url).toBe("/api/proxy/payments");
     expect(JSON.parse(options.body)).toEqual({
       student_invoice_id: 23, amount: "20000.00", payment_method: "bank_transfer", proofs: [{ image_data: imageData }],
     });

@@ -5,18 +5,17 @@ import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, Shop
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile, Invoice } from "@/lib/data";
-import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, groupChannels, newIdempotencyKey, rupiah, type GatewayChannelsResponse, type GatewayError } from "@/lib/gateway";
-import { useGatewayOverlay } from "@/components/useGatewayOverlay";
-import { isPayableOnline } from "@/components/PaymentList";
+import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, groupChannels, newIdempotencyKey, type GatewayChannelsResponse, type GatewayError } from "@/lib/gateway";
+import { rupiah } from "@/lib/format";
+import { isPayableOnline, remainingAmount, totalRemaining } from "@/lib/payments";
 
 const METHOD_ICONS = { virtual_account: Building2, credit_card: CreditCard, e_commerce: ShoppingBag, qris: QrCode } as const;
 
 export default function GatewayCheckout({ child, invoices, listHref, childQuery }: { child: ChildProfile; invoices: readonly Invoice[]; listHref: string; childQuery: string }) {
   const router = useRouter();
-  const overlaid = useGatewayOverlay(invoices);
-  const payable = useMemo(() => overlaid.filter(isPayableOnline), [overlaid]);
-  const blocked = overlaid.filter((invoice) => !isPayableOnline(invoice));
-  const invoiceTotal = payable.reduce((sum, invoice) => sum + Math.max(0, invoice.billAmount - invoice.paidAmount), 0);
+  const payable = useMemo(() => invoices.filter(isPayableOnline), [invoices]);
+  const blocked = invoices.filter((invoice) => !isPayableOnline(invoice));
+  const invoiceTotal = totalRemaining(payable);
   const [channelState, setChannelState] = useState<{ key: string; data?: GatewayChannelsResponse; error?: string } | null>(null);
   const [channel, setChannel] = useState("");
   const [idempotencyKey] = useState(newIdempotencyKey);
@@ -27,11 +26,11 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
   useEffect(() => {
     if (!invoiceKey) return;
     let cancelled = false;
-    fetchChannels({ invoiceIds: invoiceKey.split(","), invoiceTotal })
+    fetchChannels(invoiceKey.split(","))
       .then((response) => { if (!cancelled) setChannelState({ key: invoiceKey, data: response }); })
       .catch((loadError: GatewayError) => { if (!cancelled) setChannelState({ key: invoiceKey, error: loadError.message }); });
     return () => { cancelled = true; };
-  }, [invoiceKey, invoiceTotal]);
+  }, [invoiceKey]);
 
   const channels = channelState?.key === invoiceKey ? channelState.data : undefined;
   const channelsError = channelState?.key === invoiceKey ? channelState.error : undefined;
@@ -46,7 +45,6 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
         invoiceIds: payable.map((invoice) => invoice.slug),
         channel: selectedChannel.code,
         idempotencyKey,
-        items: payable.map((invoice) => ({ student_invoice_id: invoice.slug, invoice_no: invoice.invoiceNo, student_name: child.name, fee_type: `${invoice.feeType} · ${invoice.month}`, amount: Math.max(0, invoice.billAmount - invoice.paidAmount).toFixed(2) })),
       });
       router.push(gatewayPaymentHref(payment.id, childQuery));
     } catch (submitError) {
@@ -66,7 +64,7 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
           {payable.map((invoice) => (
             <div className="gateway-item" key={invoice.slug}>
               <div><strong>{invoice.feeType}</strong><small>{invoice.month}{invoice.invoiceNo ? ` · ${invoice.invoiceNo}` : ""}</small></div>
-              <span>{rupiah(Math.max(0, invoice.billAmount - invoice.paidAmount))}</span>
+              <span>{rupiah(remainingAmount(invoice))}</span>
             </div>
           ))}
           {blocked.length > 0 && <p className="fine-note">{blocked.length} tagihan tidak dapat dibayar online (sudah lunas, sedang diverifikasi, atau menunggu pembayaran online lain) dan tidak disertakan.</p>}

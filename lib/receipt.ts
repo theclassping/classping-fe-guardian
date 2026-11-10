@@ -1,4 +1,5 @@
 import type { ChildProfile, Invoice } from "@/lib/data";
+import { rupiah } from "@/lib/format";
 import { invoicePaymentState } from "@/lib/payments";
 
 export type PaymentReceipt = {
@@ -14,10 +15,6 @@ export type PaymentReceipt = {
   verifiedAt: string;
   downloadHref: string;
 };
-
-export function rupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
-}
 
 /**
  * Builds the verification receipt for a bill, or `null` while the bill is

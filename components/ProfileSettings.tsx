@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { ChildProfile } from "@/lib/data";
 import type { GuardianIdentity } from "@/lib/auth";
 import { backendErrorMessage, isCurrentGuardian, linkedGuardianProfiles, newGuardianLink, type GuardianProfile, type NewGuardianProfile } from "@/lib/guardians";
+import { proxyUrl } from "@/lib/routes";
 
 type StudentForm = { id?: number; first_name: string; middle_name: string; last_name: string; nickname: string; date_of_birth: string; gender: string; address: string };
 
@@ -49,12 +50,12 @@ export default function ProfileSettings({ child, identity, studentId }: { child:
       setLoadingGuardians(true);
       try {
         // The student detail contains every linked Guardian, including its account ID.
-        const response = await fetch(`/api/proxy/students/${studentId}/`, { cache: "no-store" });
+        const response = await fetch(proxyUrl(`students/${studentId}`), { cache: "no-store" });
         const item = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(backendErrorMessage(item, "Data wali murid tidak dapat dimuat."));
         const links: { guardian?: unknown; guardian_id?: number | string }[] = Array.isArray(item.student_guardians) ? item.student_guardians : [];
         const guardianDetails = await Promise.all(links.filter((link) => !link.guardian && link.guardian_id).map(async (link): Promise<[string, Record<string, unknown>] | null> => {
-          const detailResponse = await fetch(`/api/proxy/guardians/${link.guardian_id}/`, { cache: "no-store" });
+          const detailResponse = await fetch(proxyUrl(`guardians/${link.guardian_id}`), { cache: "no-store" });
           const detail = await detailResponse.json().catch(() => ({}));
           return detailResponse.ok ? [String(link.guardian_id), detail] : null;
         }));
@@ -76,7 +77,7 @@ export default function ProfileSettings({ child, identity, studentId }: { child:
     event.preventDefault(); setSavingStudent(true); setStudentError(""); setStudentMessage("");
     if (!student.id) { setStudentError("Data siswa belum tersedia dari server."); setSavingStudent(false); return; }
     try {
-      const response = await fetch(`/api/proxy/students/${student.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ first_name: student.first_name, middle_name: student.middle_name || null, last_name: student.last_name, nickname: student.nickname || null, date_of_birth: student.date_of_birth, gender: student.gender, address: student.address }) });
+      const response = await fetch(proxyUrl(`students/${student.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ first_name: student.first_name, middle_name: student.middle_name || null, last_name: student.last_name, nickname: student.nickname || null, date_of_birth: student.date_of_birth, gender: student.gender, address: student.address }) });
       const saved = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(backendErrorMessage(saved, "Detail siswa tidak dapat disimpan."));
       setStudentMessage("Profil siswa berhasil diperbarui.");
@@ -90,7 +91,7 @@ export default function ProfileSettings({ child, identity, studentId }: { child:
     if (!isCurrentGuardian(guardian, identity)) return setGuardianError("Anda hanya dapat mengubah profil wali murid Anda sendiri.");
     setSavingGuardian(guardian.id);
     try {
-      const response = await fetch(`/api/proxy/guardians/${guardian.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: guardian.name.trim(), email: guardian.email.trim(), phone_number: guardian.phone_number.trim(), student_guardians: [{ student_id: student.id, relationship: guardian.relationship, is_primary: guardian.is_primary }] }) });
+      const response = await fetch(proxyUrl(`guardians/${guardian.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: guardian.name.trim(), email: guardian.email.trim(), phone_number: guardian.phone_number.trim(), student_guardians: [{ student_id: student.id, relationship: guardian.relationship, is_primary: guardian.is_primary }] }) });
       const saved = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(backendErrorMessage(saved, "Detail wali murid tidak dapat disimpan. Silakan coba lagi."));
       setGuardianMessage("Profil wali murid Anda berhasil diperbarui.");
@@ -106,7 +107,7 @@ export default function ProfileSettings({ child, identity, studentId }: { child:
       // The backend creates a separate PARENT user and Guardian, sends its welcome
       // email, and appends the student link in one transaction. Existing accounts
       // are reused without changing their profile or password.
-      const response = await fetch(`/api/proxy/students/${student.id}/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ student_guardians: [newGuardianLink(newGuardian)] }) });
+      const response = await fetch(proxyUrl(`students/${student.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ student_guardians: [newGuardianLink(newGuardian)] }) });
       const saved = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(backendErrorMessage(saved, "Wali murid tidak dapat ditambahkan. Silakan coba lagi."));
       setGuardianMessage(`Wali murid berhasil ditambahkan. Silakan periksa email ${newGuardian.email.trim()} untuk informasi login ke portal. Jika email tersebut sudah terdaftar, wali dapat masuk menggunakan akun yang sudah ada.`);

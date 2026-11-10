@@ -4,17 +4,15 @@ import { FileUp, Landmark, X } from "lucide-react";
 import { DragEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { ChildProfile, Invoice } from "@/lib/data";
 import { useRouter } from "next/navigation";
-import { invoicePaymentState, submitPaymentProof } from "@/lib/payments";
+import { invoicePaymentState, remainingAmount, submitPaymentProof } from "@/lib/payments";
 import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
 import { resizeImageForUpload } from "@/lib/imageResize";
-
-function rupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
-}
+import { rupiah } from "@/lib/format";
+import { proxyUrl } from "@/lib/routes";
 
 export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "Bayar & unggah bukti", triggerId }: { child: ChildProfile; invoices: readonly Invoice[]; triggerLabel?: string; triggerId?: string }) {
   const router = useRouter();
-  const unpaid = useMemo(() => invoices.filter((invoice) => invoicePaymentState(invoice) === "unpaid" && invoice.paidAmount < invoice.billAmount), [invoices]);
+  const unpaid = useMemo(() => invoices.filter((invoice) => invoicePaymentState(invoice) === "unpaid" && remainingAmount(invoice) > 0), [invoices]);
   const selected = unpaid[0];
   const receiptInput = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -24,7 +22,7 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ text: string } | null>(null);
-  const remainingBefore = Math.max(0, (selected?.billAmount || 0) - (selected?.paidAmount || 0));
+  const remainingBefore = selected ? remainingAmount(selected) : 0;
 
   async function submitPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +39,7 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
     try {
       const upload = await resizeImageForUpload(receipt);
       if (upload.size > 10 * 1024 * 1024) throw new Error("Ukuran bukti maksimal 10 MB.");
-      const presignResponse = await fetch("/api/proxy/media/presign/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: upload.name, content_type: upload.type, size: upload.size, purpose: "payment", class_id: child.classId, branch_id: child.branchId, expires_in: 3600 }) });
+      const presignResponse = await fetch(proxyUrl("media/presign"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: upload.name, content_type: upload.type, size: upload.size, purpose: "payment", class_id: child.classId, branch_id: child.branchId, expires_in: 3600 }) });
       const presign = (await presignResponse.json()) as { file_key?: string; presigned_url?: string; detail?: string };
       if (!presignResponse.ok || !presign.file_key || !presign.presigned_url) throw new Error(presign.detail || "Bukti pembayaran tidak dapat disiapkan.");
       const uploadResponse = await fetch(presign.presigned_url, { method: "PUT", headers: { "Content-Type": upload.type }, body: upload });

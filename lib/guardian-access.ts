@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { accessTokenClaims } from "@/lib/base64url";
+import { guardianUserId as userId } from "@/lib/guardians";
+import { errorResponse, relayResponse } from "@/lib/http";
 
 type ApiRecord = Record<string, unknown>;
-const denied = (detail = "Anda hanya dapat mengubah profil wali murid Anda sendiri.") => NextResponse.json({ detail }, { status: 403 });
-const invalid = () => NextResponse.json({ detail: "Data wali murid tidak valid." }, { status: 400 });
-
-function userId(record: ApiRecord) {
-  const user = record.user;
-  return Number(user && typeof user === "object" ? (user as ApiRecord).id : user ?? record.user_id);
-}
+const denied = (detail = "Anda hanya dapat mengubah profil wali murid Anda sendiri.") => errorResponse(detail, 403);
+const invalid = () => errorResponse("Data wali murid tidak valid.", 400);
 
 export async function authorizeGuardianMutation(request: NextRequest, path: string[], apiBase: string, accessToken: string): Promise<NextResponse | null> {
   if (path.some((segment) => segment === "." || segment === ".." || /[/\\]/.test(segment))) return invalid();
@@ -16,14 +14,11 @@ export async function authorizeGuardianMutation(request: NextRequest, path: stri
   if (!["PATCH", "PUT"].includes(request.method) || path.length !== 2 || !/^\d+$/.test(path[1])) return denied();
 
   // Upstream reads authenticate the bearer token before its subject is used for ownership checks.
-  let actorId: number;
-  try {
-    actorId = Number(JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString("utf8")).user_id);
-  } catch { return denied(); }
+  const actorId = Number(accessTokenClaims(accessToken).user_id);
   if (!actorId) return denied();
 
   const upstream = await fetch(`${apiBase}/api/${path.join("/")}/`, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-  if (!upstream.ok) return new NextResponse(await upstream.arrayBuffer(), { status: upstream.status, headers: { "Content-Type": upstream.headers.get("content-type") || "application/json" } });
+  if (!upstream.ok) return relayResponse(upstream);
   const record = await upstream.json() as ApiRecord;
   let body: ApiRecord;
   try {
@@ -61,7 +56,7 @@ export async function authorizeGuardianMutation(request: NextRequest, path: stri
     if (!user || typeof user !== "object" || Array.isArray(user) || Object.keys(user).some((key) => !["email", "first_name", "last_name", "phone_number"].includes(key))) return invalid();
     if (["email", "first_name", "last_name"].some((key) => typeof user[key] !== "string" || !user[key].trim())) return invalid();
     const email = user.email.trim().toLowerCase();
-    if (linkedGuardians.some((guardian) => String(guardian?.email || "").toLowerCase() === email)) return NextResponse.json({ detail: "Wali dengan email ini sudah terhubung ke siswa." }, { status: 400 });
+    if (linkedGuardians.some((guardian) => String(guardian?.email || "").toLowerCase() === email)) return errorResponse("Wali dengan email ini sudah terhubung ke siswa.", 400);
   }
   return null;
 }

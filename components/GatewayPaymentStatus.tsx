@@ -5,7 +5,8 @@ import { ArrowLeft, Ban, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, Sh
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { cancelGatewayPayment, fetchGatewayPayment, formatDateTime, gatewayMode, isExpired, isExternalMethod, rupiah, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/lib/gateway";
+import { cancelGatewayPayment, fetchGatewayPayment, isExpired, isExternalMethod, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/lib/gateway";
+import { formatDateTime, rupiah } from "@/lib/format";
 
 const POLL_MS = 10_000;
 
@@ -58,12 +59,6 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
 
   async function copyCode(value: string) {
     try { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
-  }
-
-  async function simulatePaid() {
-    const { dummyMarkPaid } = await import("@/lib/gatewayDummy");
-    dummyMarkPaid(paymentId);
-    await load();
   }
 
   async function cancel() {
@@ -178,7 +173,6 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
             )}
 
             <p className="payment-verification-live"><RefreshCw aria-hidden="true" /> Status diperbarui otomatis setiap {returned ? 5 : 10} detik.<button type="button" onClick={() => void load()}>Periksa sekarang</button></p>
-            {gatewayMode() === "dummy" && <button type="button" className="outline-button gateway-simulate" onClick={() => void simulatePaid()}>Simulasi: tandai sudah dibayar</button>}
 
             <div className="gateway-cancel">
               {confirmingCancel ? (

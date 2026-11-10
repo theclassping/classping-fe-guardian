@@ -1,12 +1,17 @@
 import { cookies } from "next/headers";
 import { photosForStudent, studentCaption, type StudentPhoto } from "@/lib/activityVisibility";
-import { decodeIdentity } from "@/lib/auth";
+import { decodeIdentity, linkedStudentIds } from "@/lib/auth";
 import { getChild } from "@/lib/data";
-import type { Activity, ChildId, Invoice } from "@/lib/data";
+import type { Activity, ChildId, ChildProfile, Invoice } from "@/lib/data";
+import { backendOrigin, backendUrl } from "@/lib/env";
+import { asSentence, formatDateTime, formatLongDate, formatMonthYear, formatTime, fullName, initialsOf, rupiah, titleize } from "@/lib/format";
+import { guardianUserId } from "@/lib/guardians";
 import { primaryGuardianName } from "@/lib/receipt";
-import { invoicePaymentState, isVerifiedPayment, latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
+import { invoicePaymentState, isVerifiedPayment, latestPayment, remainingAmount, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
-import { isDummyGatewayMode, type GatewayMethod } from "@/lib/gateway";
+import { records, recordsOrNull } from "@/lib/records";
+import { childQueryFor } from "@/lib/routes";
+import { SESSION_COOKIES } from "@/lib/session";
 
 type ApiActivity = {
   id?: number;
@@ -94,8 +99,6 @@ type ApiInvoice = {
   payment_date?: string;
   payment?: ApiPayment | null;
   payments?: ApiPayment[];
-  payable_via_gateway?: boolean;
-  pending_gateway_payment?: { id?: number | string; payment_no?: string; channel_name?: string; payment_method?: string; expires_at?: string } | null;
 };
 
 export type GuardianNotification = {
@@ -115,22 +118,6 @@ type ApiAcademicYear = { id?: number | string; branch?: number | string; name?: 
 type ApiGuardian = { id?: number | string; user?: number | string | { id?: number | string }; user_id?: number | string; name?: string; email?: string; phone_number?: string };
 export type GuardianSchool = ApiSchool & { address?: string; phone_number?: string; email?: string; branch_name?: string; branch_id?: number; academic_year?: string; payment_gateway_enabled?: boolean };
 
-const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
-/** Sample data is only shown when no backend is configured at all; a failing backend must never be disguised as demo content. */
-const demoMode = !apiBase;
-
-function records<T>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[];
-  if (payload && typeof payload === "object" && "results" in payload) {
-    const results = (payload as { results?: unknown }).results;
-    if (Array.isArray(results)) return results as T[];
-  }
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const data = (payload as { data?: unknown }).data;
-    if (Array.isArray(data)) return data as T[];
-  }
-  return [];
-}
 
 function formatClassLabel(name?: string, branchName?: string) {
   if (!name) return undefined;
@@ -170,31 +157,36 @@ async function teacherForActivity(activity: ApiActivity, cache: Map<string, Prom
   return nameFromTeacher(assignment || undefined) || "Nama guru belum tersedia";
 }
 
+/** The signed-in guardian from the identity cookie, or `null`. */
+export async function sessionIdentity() {
+  return decodeIdentity((await cookies()).get(SESSION_COOKIES.identity)?.value);
+}
+
+/** The selected child's backend id: the current-student cookie when it is one of the guardian's students, else the first one. */
 export async function sessionStudentId() {
-  const cookieStore = await cookies();
-  const identity = decodeIdentity(cookieStore.get("guardian_identity")?.value);
+  const identity = await sessionIdentity();
   if (!identity) return undefined;
-  const linkedIds = new Set([
-    ...(identity.student_id ? [identity.student_id] : []),
-    ...(identity.students || []).map((student) => student.id),
-  ]);
-  const currentId = Number(cookieStore.get("current_student_id")?.value);
-  if (Number.isInteger(currentId) && linkedIds.has(currentId)) return currentId;
+  const currentId = Number((await cookies()).get(SESSION_COOKIES.currentStudentId)?.value);
+  if (Number.isInteger(currentId) && linkedStudentIds(identity).has(currentId)) return currentId;
   return identity.student_id ?? identity.students?.[0]?.id;
 }
+
 type ApiResult<T> = { status: number; data: T | null };
+
+/** GET with the session's access token; `null` when no backend or session is configured. Throws on network errors. */
+async function authorizedGet(url: string | URL) {
+  const accessToken = (await cookies()).get(SESSION_COOKIES.accessToken)?.value;
+  if (!accessToken) return null;
+  return fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+}
 
 /** Fetches a backend resource and keeps the HTTP status so callers can tell "not found" apart from "could not reach the API". Status 0 means no API/session or a network failure. */
 async function getWithStatus<T>(path: string): Promise<ApiResult<T>> {
-  if (!apiBase) return { status: 0, data: null };
-  const accessToken = (await cookies()).get("access_token")?.value;
-  if (!accessToken) return { status: 0, data: null };
-
+  const url = backendUrl(path);
+  if (!url) return { status: 0, data: null };
   try {
-    const response = await fetch(`${apiBase}${path}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    });
+    const response = await authorizedGet(url);
+    if (!response) return { status: 0, data: null };
     if (!response.ok) return { status: response.status, data: null };
     return { status: response.status, data: (await response.json()) as T };
   } catch {
@@ -206,10 +198,10 @@ async function get<T>(path: string): Promise<T | null> {
   return (await getWithStatus<T>(path)).data;
 }
 
+/** Every item of a paginated list, following `next` links on the backend's own origin (at most 100 pages). */
 async function getAll<T>(path: string): Promise<T[]> {
+  const apiBase = backendOrigin();
   if (!apiBase) return [];
-  const accessToken = (await cookies()).get("access_token")?.value;
-  if (!accessToken) return [];
 
   const baseOrigin = new URL(apiBase).origin;
   let nextUrl: string | null = new URL(path, `${apiBase}/`).toString();
@@ -222,29 +214,19 @@ async function getAll<T>(path: string): Promise<T[]> {
       if (pageUrl.origin !== baseOrigin || !pageUrl.pathname.startsWith("/api/")) break;
       visited.add(nextUrl);
 
-      const response = await fetch(pageUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (!response.ok) break;
+      const response = await authorizedGet(pageUrl);
+      if (!response?.ok) break;
 
       const payload = await response.json() as unknown;
       if (Array.isArray(payload)) {
         items.push(...payload as T[]);
         break;
       }
-      if (!payload || typeof payload !== "object") break;
-
-      const pageItems = "results" in payload && Array.isArray(payload.results)
-        ? payload.results
-        : "data" in payload && Array.isArray(payload.data)
-          ? payload.data
-          : null;
+      const page = payload as { results?: unknown; data?: unknown; next?: unknown } | null;
+      const pageItems = Array.isArray(page?.results) ? page.results : Array.isArray(page?.data) ? page.data : null;
       if (!pageItems) break;
       items.push(...pageItems as T[]);
-
-      const next = "next" in payload && typeof payload.next === "string" ? payload.next : null;
-      nextUrl = next ? new URL(next, pageUrl).toString() : null;
+      nextUrl = typeof page?.next === "string" ? new URL(page.next, pageUrl).toString() : null;
     }
   } catch {
     return items;
@@ -253,8 +235,8 @@ async function getAll<T>(path: string): Promise<T[]> {
   return items;
 }
 
-export async function studentForBackend(studentId: number, fallback: import("@/lib/data").ChildProfile) {
-  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
+export async function studentForBackend(studentId: number, fallback: ChildProfile) {
+  const identity = await sessionIdentity();
   const linkedStudent = identity?.students?.find((student) => student.id === studentId);
   const fallbackName = linkedStudent?.name || "Siswa";
   fallback = {
@@ -273,22 +255,30 @@ export async function studentForBackend(studentId: number, fallback: import("@/l
   const classAssignment = activeClassStudent(item?.class_students, classStudentRecords);
   const classId = classAssignment?.class_id;
   const classRecord = classId ? await get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`) : null;
-  const classIdNumber = Number(classId);
-  const branchIdNumber = Number(classRecord?.branch);
   const className = formatClassLabel(classRecord?.name || classAssignment?.class_name, classRecord?.branch_name)
     || "Kelas belum tersedia";
-  if (!item?.id) {
-    return { ...fallback, className, classCode: className, classId: Number.isInteger(classIdNumber) && classIdNumber > 0 ? classIdNumber : undefined, branchId: Number.isInteger(branchIdNumber) && branchIdNumber > 0 ? branchIdNumber : undefined };
-  }
-  const name = [item.first_name, item.middle_name, item.last_name].filter(Boolean).join(" ") || fallback.name;
-  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), className, classCode: className, classId: Number.isInteger(classIdNumber) && classIdNumber > 0 ? classIdNumber : undefined, branchId: Number.isInteger(branchIdNumber) && branchIdNumber > 0 ? branchIdNumber : undefined, id: fallback.id };
+  const classFields = { className, classCode: className, classId: positiveId(classId), branchId: positiveId(classRecord?.branch) };
+  if (!item?.id) return { ...fallback, ...classFields };
+  const name = fullName(item.first_name, item.middle_name, item.last_name) || fallback.name;
+  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: initialsOf(name), ...classFields, id: fallback.id };
 }
 
+/** The value as a positive integer id, or undefined. */
+function positiveId(value: unknown) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
+}
+
+/**
+ * The child selected for this request: its profile, its backend id (as a string for links and as a number
+ * for API calls) and the query string that keeps it selected on dashboard links.
+ */
 export async function selectedStudentForRequest() {
   const fallback = getChild();
-  const currentStudentId = await sessionStudentId();
-  const child = currentStudentId ? await studentForBackend(currentStudentId, fallback) : fallback;
-  return { child, studentId: currentStudentId ? String(currentStudentId) : undefined };
+  const numericStudentId = await sessionStudentId();
+  const child = numericStudentId ? await studentForBackend(numericStudentId, fallback) : fallback;
+  const studentId = numericStudentId ? String(numericStudentId) : undefined;
+  return { child, studentId, numericStudentId, childQuery: childQueryFor(studentId, child.id) };
 }
 
 /** Name of the guardian the school addresses for this student: the primary guardian, like the verification email, else the first linked one. */
@@ -301,8 +291,8 @@ export async function studentsForGuardian(guardianId: number) {
   const records = await get<ApiStudent[]>(`/api/students/?guardian_id=${guardianId}`);
   if (!Array.isArray(records)) return [];
   return records.filter((student): student is ApiStudent & { id: number } => typeof student.id === "number").map((student) => {
-    const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || "Siswa";
-    return { id: student.id, name, nickname: student.nickname || student.first_name, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() };
+    const name = fullName(student.first_name, student.middle_name, student.last_name) || "Siswa";
+    return { id: student.id, name, nickname: student.nickname || student.first_name, initials: initialsOf(name) };
   });
 }
 
@@ -382,12 +372,8 @@ export async function schoolForBackend(studentId: number) {
   } satisfies GuardianSchool;
 }
 
-/**
- * Whether the selected child's branch offers online payment through the gateway.
- * In dummy gateway mode (backend not ready) the option is always shown.
- */
+/** Whether the selected child's branch offers online payment through the gateway. */
 export async function paymentGatewayForStudent(studentId?: number): Promise<{ enabled: boolean; branchId?: number }> {
-  if (isDummyGatewayMode() || demoMode) return { enabled: true };
   if (!studentId) return { enabled: false };
   const school = await schoolForBackend(studentId).catch(() => null);
   return { enabled: Boolean(school?.payment_gateway_enabled), branchId: school?.branch_id };
@@ -399,27 +385,11 @@ export async function guardianForBackend(guardianId?: number, userId?: number, e
     if (guardian?.id) return guardian;
   }
   const payload = await get<ApiGuardian[] | { results?: ApiGuardian[] }>("/api/guardians/");
-  return records<ApiGuardian>(payload).find((guardian) => {
-    const linkedUserId = typeof guardian.user === "object" && guardian.user ? Number(guardian.user.id) : Number(guardian.user ?? guardian.user_id);
-    return (guardianId && Number(guardian.id) === guardianId)
-      || (userId && linkedUserId === userId)
-      || (email && guardian.email?.toLowerCase() === email.toLowerCase());
-  }) || null;
-}
-
-function childMatches(childId: ChildId, className = "", studentName = "") {
-  const haystack = `${className} ${studentName}`.toLowerCase();
-  return childId === "alya" ? haystack.includes("a1") || haystack.includes("alya") : haystack.includes("b2") || haystack.includes("jisindo");
-}
-
-function titleizePaymentMethod(value?: string) {
-  if (!value) return "—";
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function titleizeStatus(value?: string) {
-  if (!value) return "—";
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return records<ApiGuardian>(payload).find((guardian) =>
+    (guardianId && Number(guardian.id) === guardianId)
+    || (userId && guardianUserId(guardian) === userId)
+    || (email && guardian.email?.toLowerCase() === email.toLowerCase()),
+  ) || null;
 }
 
 function statusTone(value?: string): Invoice["statusTone"] {
@@ -430,80 +400,55 @@ function statusTone(value?: string): Invoice["statusTone"] {
   return "warning";
 }
 
-function humanizePaymentDate(value?: string) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-export async function activitiesForBackend(childId: ChildId, fallback: Activity[], studentId?: number) {
-  const filters = new URLSearchParams();
-  if (studentId !== undefined) filters.set("student_id", String(studentId));
-  filters.set("is_publish", "true");
-  const payload = await get<ApiActivity[] | { results?: ApiActivity[] }>(`/api/activities/?${filters.toString()}`);
-  const records = Array.isArray(payload) ? payload : payload?.results || null;
-  if (!records) return demoMode ? fallback : [];
-  const visibleRecords = records
-    .filter((item) => item.is_publish !== false)
-    .filter((item) => !studentId || activityMatchesStudent(item, studentId));
-  const teacherCache = new Map<string, Promise<ApiClassTeacher | null>>();
-  const mapped = await Promise.all(visibleRecords.map(async (item, index): Promise<Activity> => {
-      const visibleImages = imagesForStudent(item.activity_images, studentId);
-      return {
-      childId,
-      slug: String(item.id ?? item.name ?? `activity-${index}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-      title: item.name || "Aktivitas sekolah",
-      date: item.activity_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.activity_date)) : "Tanggal belum tersedia",
-      time: item.activity_date ? new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(item.activity_date)) : "",
-      emoji: "🎨",
-      secondaryEmoji: "📷",
-      tone: "mint",
-      photos: visibleImages.length,
-      summary: item.description || "Catatan aktivitas dari sekolah.",
-      description: item.description || "Catatan aktivitas dari sekolah.",
-      teacher: await teacherForActivity(item, teacherCache),
-      teacherNote: studentCaption(item.activity_images, studentId) || "Informasi aktivitas tersedia dari sekolah.",
-      skills: [],
-      imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
-      occurredAt: item.activity_date || item.updated_at || item.created_at,
-      };
-    }));
-  return mapped;
-}
-
-export async function activityForBackend(slug: string, childId: ChildId, fallback: Activity, studentId?: number) {
-  const suffix = studentId ? `?student_id=${studentId}` : "";
-  const item = await get<ApiActivity>(`/api/activities/${encodeURIComponent(slug)}/${suffix}`);
-  if (!item || item.is_publish === false) return demoMode && !studentId ? fallback : null;
-  if (studentId && !activityMatchesStudent(item, studentId)) return null;
+/** Backend activity → card/detail view. Missing fields get neutral defaults, never invented content. */
+function mapActivity(item: ApiActivity, { childId, slug, studentId, teacher, noteFallback }: { childId: ChildId; slug: string; studentId?: number; teacher: string; noteFallback: string }): Activity {
   const visibleImages = imagesForStudent(item.activity_images, studentId);
-  const teacher = await teacherForActivity(item, new Map());
-  // Missing fields get the same neutral defaults as the list, never text from the demo activity.
+  const description = item.description || "Catatan aktivitas dari sekolah.";
   return {
     childId,
     slug,
     title: item.name || "Aktivitas sekolah",
-    date: item.activity_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.activity_date)) : "Tanggal belum tersedia",
-    time: item.activity_date ? new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(item.activity_date)) : "",
+    date: formatLongDate(item.activity_date, "Tanggal belum tersedia"),
+    time: formatTime(item.activity_date),
     emoji: "🎨",
     secondaryEmoji: "📷",
     tone: "mint",
     photos: visibleImages.length,
-    summary: item.description || "Catatan aktivitas dari sekolah.",
-    description: item.description || "Catatan aktivitas dari sekolah.",
+    summary: description,
+    description,
     teacher,
-    // The note card is the teacher's caption on this child's own photos; the activity description already sits in the hero.
-    teacherNote: studentCaption(item.activity_images, studentId) || "Belum ada catatan khusus dari guru.",
+    // The note is the teacher's caption on this child's own photos; the description is shown separately.
+    teacherNote: studentCaption(item.activity_images, studentId) || noteFallback,
     skills: [],
     imageUrls: visibleImages.map((image) => image.image_url).filter((url): url is string => Boolean(url)),
     occurredAt: item.activity_date || item.updated_at || item.created_at,
-  } satisfies Activity;
+  };
+}
+
+export async function activitiesForBackend(childId: ChildId, studentId?: number) {
+  const filters = new URLSearchParams();
+  if (studentId !== undefined) filters.set("student_id", String(studentId));
+  filters.set("is_publish", "true");
+  const items = recordsOrNull<ApiActivity>(await get(`/api/activities/?${filters.toString()}`)) || [];
+  const visible = items
+    .filter((item) => item.is_publish !== false)
+    .filter((item) => !studentId || activityMatchesStudent(item, studentId));
+  const teacherCache = new Map<string, Promise<ApiClassTeacher | null>>();
+  return Promise.all(visible.map(async (item, index) => mapActivity(item, {
+    childId,
+    studentId,
+    slug: String(item.id ?? item.name ?? `activity-${index}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    teacher: await teacherForActivity(item, teacherCache),
+    noteFallback: "Informasi aktivitas tersedia dari sekolah.",
+  })));
+}
+
+export async function activityForBackend(slug: string, childId: ChildId, studentId?: number) {
+  const suffix = studentId ? `?student_id=${studentId}` : "";
+  const item = await get<ApiActivity>(`/api/activities/${encodeURIComponent(slug)}/${suffix}`);
+  if (!item || item.is_publish === false) return null;
+  if (studentId && !activityMatchesStudent(item, studentId)) return null;
+  return mapActivity(item, { childId, slug, studentId, teacher: await teacherForActivity(item, new Map()), noteFallback: "Belum ada catatan khusus dari guru." });
 }
 
 /** A row of `GET /api/gateway/invoices/?student_id=` (backend PayableInvoiceSerializer). */
@@ -541,23 +486,17 @@ function withGatewayPayability(invoice: Invoice, payability: GatewayPayability |
   };
 }
 
-/** Resolves to the guardian's bills, or `null` when the backend could not be read (expired session, outage). Sample bills only appear in demo mode. */
-export async function invoicesForBackend(childId: ChildId, fallback: Invoice[], studentId?: number): Promise<Invoice[] | null> {
+/** Resolves to the guardian's bills, or `null` when the backend could not be read (expired session, outage). */
+export async function invoicesForBackend(childId: ChildId, studentId?: number): Promise<Invoice[] | null> {
   const [payload, payability] = await Promise.all([
-    get<ApiInvoice[] | { results?: ApiInvoice[] }>(studentId ? `/api/student-invoices/?student_id=${studentId}` : "/api/student-invoices/"),
+    get(studentId ? `/api/student-invoices/?student_id=${studentId}` : "/api/student-invoices/"),
     gatewayPayabilityFor(studentId),
   ]);
-  const records = Array.isArray(payload) ? payload : payload?.results || null;
-  if (!records) return demoMode ? fallback : null;
-  const mapped = records
-    .filter((item) => studentId ? Number(item.student_id) === studentId : childMatches(childId, item.class_name, item.student_name))
+  const items = recordsOrNull<ApiInvoice>(payload);
+  if (!items) return null;
+  return items
+    .filter((item) => !studentId || Number(item.student_id) === studentId)
     .map((item) => withGatewayPayability(mapInvoice(item, childId), payability));
-  return mapped;
-}
-
-/** Ends free text (e.g. a rejection reason typed by staff) with exactly one full stop. */
-function asSentence(text: string) {
-  return `${text.trim().replace(/[.!?]+$/, "")}.`;
 }
 
 export async function notificationsForBackend(studentId?: number): Promise<GuardianNotification[]> {
@@ -586,8 +525,8 @@ export async function notificationsForBackend(studentId?: number): Promise<Guard
   const paymentNotifications = invoiceItems.map((item): GuardianNotification | null => {
     if (!item.id) return null;
     const occurredAt = item.updated_at || item.created_at || item.invoice_date;
-    const month = item.invoice_date ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(item.invoice_date)) : item.invoice_no || "Tagihan";
-    const status = item.status ? titleizeStatus(item.status) : "Status diperbarui";
+    const month = formatMonthYear(item.invoice_date, item.invoice_no || "Tagihan");
+    const status = item.status ? titleize(item.status) : "Status diperbarui";
     const payment = item.payment || latestPayment(item.payments);
     const invoiceStatus = String(item.status || "").toLowerCase();
     const rejected = payment?.status === "rejected" && invoiceStatus === "unpaid";
@@ -619,45 +558,41 @@ export async function notificationsForBackend(studentId?: number): Promise<Guard
 function mapInvoice(item: ApiInvoice, childId: ChildId, payment = item.payment || latestPayment(item.payments)): Invoice {
   const billAmount = Number(item.total_amount || item.subtotal || 0);
   const paidAmount = Number(item.amount_paid || 0);
+  const remaining = remainingAmount({ billAmount, paidAmount });
   const paid = paidAmount >= billAmount && billAmount > 0;
   const apiStatus = item.status;
   const state = invoicePaymentState({ status: apiStatus || "", billAmount, paidAmount });
   const verified = state === "paid" && isVerifiedPayment(payment);
   const rejected = state === "unpaid" && payment?.status === "rejected";
   const paymentDate = state === "paid" ? item.paid_at || item.payment_date || payment?.paid_at || payment?.payment_date : undefined;
+  const paymentDateTime = (value?: string) => formatDateTime(value, { zoneName: false });
+  const money = (value: number) => rupiah(value, item.currency || "IDR");
   return {
     childId,
     slug: String(item.id ?? item.invoice_no ?? "invoice"),
-    month: item.invoice_date ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(item.invoice_date)) : item.invoice_no || "Tagihan",
+    month: formatMonthYear(item.invoice_date, item.invoice_no || "Tagihan"),
     feeType: item.fee_type?.name?.trim() || item.fee_type_name?.trim() || "Biaya sekolah",
-    amount: new Intl.NumberFormat("id-ID", { style: "currency", currency: item.currency || "IDR", maximumFractionDigits: 0 }).format(Math.max(0, billAmount - paidAmount)),
+    amount: money(remaining),
     billAmount,
     paidAmount,
-    dueDate: item.due_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date(item.due_date)) : "Belum tersedia",
-    status: apiStatus ? titleizeStatus(apiStatus) : paid ? "Lunas" : paidAmount > 0 ? `Sebagian · sisa ${new Intl.NumberFormat("id-ID", { style: "currency", currency: item.currency || "IDR", maximumFractionDigits: 0 }).format(billAmount - paidAmount)}` : "Menunggu pembayaran",
+    dueDate: formatLongDate(item.due_date, "Belum tersedia"),
+    status: apiStatus ? titleize(apiStatus) : paid ? "Lunas" : paidAmount > 0 ? `Sebagian · sisa ${money(remaining)}` : "Menunggu pembayaran",
     statusTone: apiStatus ? statusTone(apiStatus) : paid ? "success" : paidAmount > 0 ? "partial" : "warning",
-    method: titleizePaymentMethod(item.payment_method || payment?.payment_method),
-    paidAt: humanizePaymentDate(paymentDate),
+    method: titleize(item.payment_method || payment?.payment_method),
+    paidAt: paymentDateTime(paymentDate),
     fine: "Tidak ada",
     paymentSubmitted: state === "submitted",
     paymentId: payment?.id,
     paymentMethod: payment?.payment_method,
     rejectionReason: rejected ? payment.rejection_reason || "Bukti pembayaran belum dapat diverifikasi." : undefined,
-    verifiedAt: verified ? humanizePaymentDate(payment?.verified_at || paymentDate) : "—",
+    verifiedAt: verified ? paymentDateTime(payment?.verified_at || paymentDate) : "—",
     proofUrl: verified ? verifiedPaymentProofUrl(payment) : undefined,
     invoiceNo: item.invoice_no?.trim() || undefined,
     invoiceDate: item.invoice_date || item.created_at,
     studentId: item.student_id,
-    // Until the backend exposes `payable_via_gateway`, an open bill without a manual payment in progress is payable online.
-    payableViaGateway: item.payable_via_gateway ?? (state === "unpaid" && !item.pending_gateway_payment),
-    pendingGatewayPayment: item.pending_gateway_payment ? {
-      id: item.pending_gateway_payment.id ?? "",
-      paymentNo: item.pending_gateway_payment.payment_no,
-      channelName: item.pending_gateway_payment.channel_name,
-      paymentMethod: item.pending_gateway_payment.payment_method as GatewayMethod | undefined,
-      expiresAt: item.pending_gateway_payment.expires_at,
-    } : undefined,
-  } as Invoice;
+    // Refined by GET gateway/invoices (withGatewayPayability), which also knows about locks.
+    payableViaGateway: state === "unpaid",
+  };
 }
 
 export type InvoiceLookup =
@@ -667,24 +602,20 @@ export type InvoiceLookup =
   /** The backend could not be reached or rejected the session; the bill may still exist. */
   | { state: "unavailable" };
 
-export async function invoiceLookupForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice): Promise<InvoiceLookup> {
+export async function invoiceLookupForBackend(invoiceId: string, childId: ChildId): Promise<InvoiceLookup> {
   const { status, data: item } = await getWithStatus<ApiInvoice | { results?: ApiInvoice[] }>(`/api/student-invoices/${encodeURIComponent(invoiceId)}/`);
   const record: ApiInvoice | undefined = item && typeof item === "object" && "results" in item ? item.results?.[0] : item as ApiInvoice | null || undefined;
-  if (!record) {
-    if (demoMode) return fallback ? { state: "found", invoice: fallback } : { state: "missing" };
-    return status === 404 || status === 403 ? { state: "missing" } : { state: "unavailable" };
-  }
+  if (!record) return status === 404 || status === 403 ? { state: "missing" } : { state: "unavailable" };
   const [paymentPayload, payability] = await Promise.all([
-    get<ApiPayment[] | { results?: ApiPayment[] }>(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`),
-    gatewayPayabilityFor(Number(record.student_id) || undefined),
+    get(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`),
+    gatewayPayabilityFor(positiveId(record.student_id)),
   ]);
-  const payments = Array.isArray(paymentPayload) ? paymentPayload : paymentPayload?.results || [];
-  const payment = latestPayment(payments);
+  const payment = latestPayment(records<ApiPayment>(paymentPayload));
   const invoice = payment ? mapInvoice(record, childId, payment) : mapInvoice(record, childId);
   return { state: "found", invoice: withGatewayPayability(invoice, payability) };
 }
 
-export async function invoiceForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice) {
-  const lookup = await invoiceLookupForBackend(invoiceId, childId, fallback);
+export async function invoiceForBackend(invoiceId: string, childId: ChildId) {
+  const lookup = await invoiceLookupForBackend(invoiceId, childId);
   return lookup.state === "found" ? lookup.invoice : undefined;
 }

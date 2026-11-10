@@ -32,9 +32,9 @@ describe("ClassPing Guardian feature smoke coverage", () => {
     const proxySource = read("proxy.ts");
 
     expect(proxySource).toContain('pathname.startsWith("/dashboard")');
-    expect(proxySource).toContain('request.cookies.get("access_token")');
-    expect(proxySource).toContain('request.cookies.get("guardian_identity")');
-    expect(proxySource).toContain('loginUrl.searchParams.set("next", next)');
+    expect(proxySource).toContain("request.cookies.get(SESSION_COOKIES.accessToken)");
+    expect(proxySource).toContain("request.cookies.get(SESSION_COOKIES.identity)");
+    expect(proxySource).toContain('loginUrl.searchParams.set("next"');
   });
 
   it("contains the complete guardian navigation surface", () => {

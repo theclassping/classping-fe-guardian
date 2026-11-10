@@ -1,23 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { backendOrigin } from "@/lib/env";
 import { authorizeGuardianMutation } from "@/lib/guardian-access";
+import { errorResponse, relayResponse } from "@/lib/http";
+import { SESSION_COOKIES } from "@/lib/session";
 
-const apiBase = process.env.DJANGO_API_URL?.replace(/\/$/, "");
+/** Forwards /api/proxy/<path> from the browser to the Django API with the session's access token. */
+async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
+  const apiBase = backendOrigin();
+  if (!apiBase) return errorResponse("Server API belum dikonfigurasi.", 503);
 
-async function forward(request: NextRequest, path: string[]) {
-  if (!apiBase) {
-    return NextResponse.json(
-      { detail: "Server API belum dikonfigurasi." },
-      { status: 503 },
-    );
-  }
-
-  const accessToken = request.cookies.get("access_token")?.value;
-  if (!accessToken) {
-    return NextResponse.json(
-      { detail: "Authentication credentials were not provided." },
-      { status: 401 },
-    );
-  }
+  const accessToken = request.cookies.get(SESSION_COOKIES.accessToken)?.value;
+  if (!accessToken) return errorResponse("Authentication credentials were not provided.", 401);
 
   const headers = new Headers({ Authorization: `Bearer ${accessToken}` });
   const contentType = request.headers.get("content-type");
@@ -26,52 +20,20 @@ async function forward(request: NextRequest, path: string[]) {
   try {
     const rejection = await authorizeGuardianMutation(request, path, apiBase, accessToken);
     if (rejection) return rejection;
-    const response = await fetch(
-      `${apiBase}/api/${path.join("/")}/${request.nextUrl.search}`,
-      {
-        method: request.method,
-        headers,
-        body:
-          request.method === "GET" || request.method === "HEAD"
-            ? undefined
-            : await request.arrayBuffer(),
-        cache: "no-store",
-      },
-    );
-    const responseHeaders = new Headers();
-    const responseContentType = response.headers.get("content-type");
-    if (responseContentType) responseHeaders.set("Content-Type", responseContentType);
-
-    return new NextResponse(await response.arrayBuffer(), {
-      status: response.status,
-      headers: responseHeaders,
+    const response = await fetch(`${apiBase}/api/${path.join("/")}/${request.nextUrl.search}`, {
+      method: request.method,
+      headers,
+      body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer(),
+      cache: "no-store",
     });
+    return relayResponse(response);
   } catch {
-    return NextResponse.json(
-      { detail: "Tidak dapat menghubungi server API." },
-      { status: 502 },
-    );
+    return errorResponse("Tidak dapat menghubungi server API.", 502);
   }
 }
 
-type RouteContext = { params: Promise<{ path: string[] }> };
-
-export async function GET(request: NextRequest, context: RouteContext) {
-  return forward(request, (await context.params).path);
-}
-
-export async function POST(request: NextRequest, context: RouteContext) {
-  return forward(request, (await context.params).path);
-}
-
-export async function PUT(request: NextRequest, context: RouteContext) {
-  return forward(request, (await context.params).path);
-}
-
-export async function PATCH(request: NextRequest, context: RouteContext) {
-  return forward(request, (await context.params).path);
-}
-
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  return forward(request, (await context.params).path);
-}
+export const GET = forward;
+export const POST = forward;
+export const PUT = forward;
+export const PATCH = forward;
+export const DELETE = forward;

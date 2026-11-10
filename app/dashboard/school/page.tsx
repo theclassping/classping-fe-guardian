@@ -1,13 +1,14 @@
 import { Clock3, Mail, MapPin, Phone, ShieldCheck, UsersRound } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { schoolForBackend, sessionStudentId } from "@/lib/backend";
+import { initialsOf } from "@/lib/format";
 
 export default async function SchoolPage() {
   const studentId = await sessionStudentId();
   const school = studentId ? await schoolForBackend(studentId) : null;
   const schoolName = school?.name || "Sekolah belum tersedia";
   const academicYear = school?.academic_year || "Belum tersedia";
-  const schoolInitials = school?.name?.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SK";
+  const schoolInitials = initialsOf(school?.name || "") || "SK";
   return (
     <div className="content-page">
       <PageHeader eyebrow="SEKOLAH ANAK" title="Profil Sekolah" description={`Informasi resmi dan kontak ${schoolName}.`} />

@@ -22,7 +22,10 @@ import Brand from "@/components/Brand";
 import LogoutButton from "@/components/LogoutButton";
 import type { GuardianIdentity } from "@/lib/auth";
 import type { GuardianNotification, GuardianSchool } from "@/lib/backend";
-import { getChild, type ChildId, type ChildProfile } from "@/lib/data";
+import { getChild, type ChildProfile } from "@/lib/data";
+import { fullName, initialsOf } from "@/lib/format";
+import { proxyUrl } from "@/lib/routes";
+import { useStoredIds } from "@/components/useStoredIds";
 
 type NavItem = { href: string; label: string; icon: typeof Settings; badge?: string; exact?: boolean };
 
@@ -53,28 +56,16 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  // Server-rendered notifications, replaced by the 30-second refresh until the server sends a new list.
+  const [fetchedNotifications, setFetchedNotifications] = useState<{ source: GuardianNotification[]; items: GuardianNotification[] } | null>(null);
+  const notifications = fetchedNotifications?.source === initialNotifications ? fetchedNotifications.items : initialNotifications;
   const [contactOpen, setContactOpen] = useState(false);
   const [category, setCategory] = useState("profile");
   const [relatedTo, setRelatedTo] = useState<string>(studentId || child.id);
   const [subject, setSubject] = useState("");
   const menuArea = useRef<HTMLDivElement>(null);
-  const notificationStorageKey = `classping:guardian:read-notifications:${studentId || "current"}`;
+  const [readNotificationIds, markNotificationsRead] = useStoredIds(`classping:guardian:read-notifications:${studentId || "current"}`);
   const unreadNotifications = notifications.filter((item) => !readNotificationIds.includes(item.id));
-
-  useEffect(() => {
-    setNotifications(initialNotifications);
-  }, [initialNotifications]);
-
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
-      setReadNotificationIds(Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : []);
-    } catch {
-      setReadNotificationIds([]);
-    }
-  }, [notificationStorageKey]);
 
   useEffect(() => {
     let active = true;
@@ -83,29 +74,13 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
         const response = await fetch("/api/notifications", { cache: "no-store" });
         if (!response.ok) return;
         const latest = await response.json() as GuardianNotification[];
-        if (active && Array.isArray(latest)) setNotifications(latest);
+        if (active && Array.isArray(latest)) setFetchedNotifications({ source: initialNotifications, items: latest });
       } catch { /* Keep the last notifications when the service is temporarily unavailable. */ }
     }
     void refreshNotifications();
     const interval = window.setInterval(() => void refreshNotifications(), 30_000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [studentId]);
-
-  function markNotificationRead(notificationId: string) {
-    setReadNotificationIds((current) => {
-      const next = [...new Set([...current, notificationId])].slice(-200);
-      try { localStorage.setItem(notificationStorageKey, JSON.stringify(next)); } catch { /* The notification still disappears for this session. */ }
-      return next;
-    });
-  }
-
-  function markAllNotificationsRead() {
-    setReadNotificationIds((current) => {
-      const next = [...new Set([...current, ...notifications.map((item) => item.id)])].slice(-200);
-      try { localStorage.setItem(notificationStorageKey, JSON.stringify(next)); } catch { /* The notification list still clears for this session. */ }
-      return next;
-    });
-  }
+  }, [studentId, initialNotifications]);
 
   function formatNotificationDate(value?: string) {
     if (!value) return "Tanggal tidak tersedia";
@@ -117,19 +92,14 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   useEffect(() => {
     if (!studentId) return;
     let active = true;
-    fetch(`/api/proxy/students/${studentId}/`).then((response) => response.ok ? response.json() : null).then((student) => {
+    fetch(proxyUrl(`students/${studentId}`)).then((response) => response.ok ? response.json() : null).then((student) => {
       if (!active || !student?.id) return;
-      const name = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(" ") || initialChild.name;
+      const name = fullName(student.first_name, student.middle_name, student.last_name) || initialChild.name;
       const currentClass = student.class_students?.find((entry: { is_current?: boolean }) => entry.is_current) || student.class_students?.[0];
-      const initials = name.split(" ").filter(Boolean).map((part: string) => part[0]).join("").slice(0, 2).toUpperCase();
-      setDynamicChild({ ...initialChild, name, firstName: student.first_name || initialChild.firstName, nickname: student.nickname || student.first_name || initialChild.firstName, initials, className: currentClass?.class_name || initialChild.className, classCode: currentClass?.class_name || initialChild.classCode });
+      setDynamicChild({ ...initialChild, name, firstName: student.first_name || initialChild.firstName, nickname: student.nickname || student.first_name || initialChild.firstName, initials: initialsOf(name), className: currentClass?.class_name || initialChild.className, classCode: currentClass?.class_name || initialChild.classCode });
     }).catch(() => undefined);
     return () => { active = false; };
   }, [studentId, initialChild]);
-
-  function withChild(href: string) {
-    return href;
-  }
 
   async function selectStudent(nextStudentId: number) {
     setSelectingStudentId(nextStudentId);
@@ -208,7 +178,7 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
       const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
       const Icon = item.icon;
       return (
-        <Link key={item.href} href={withChild(item.href)} className={`nav-link ${active ? "active" : ""}`} onClick={() => setSidebarOpen(false)}>
+        <Link key={item.href} href={item.href} className={`nav-link ${active ? "active" : ""}`} onClick={() => setSidebarOpen(false)}>
           <Icon aria-hidden="true" /><span>{item.label}</span>{item.badge && <b>{item.badge}</b>}
         </Link>
       );
@@ -234,12 +204,12 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
       <div className="portal-page">
         <header className="topbar">
           <button className="mobile-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu"><Menu /></button>
-          <Link className="school-identity" href={withChild("/dashboard/school")}><span>{school?.name?.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SK"}</span><div><strong>{school?.name || "Sekolah belum tersedia"}</strong><small>{school?.academic_year ? `Tahun Ajaran ${school.academic_year}` : "Tahun ajaran belum tersedia"}</small></div></Link>
+          <Link className="school-identity" href="/dashboard/school"><span>{initialsOf(school?.name || "") || "SK"}</span><div><strong>{school?.name || "Sekolah belum tersedia"}</strong><small>{school?.academic_year ? `Tahun Ajaran ${school.academic_year}` : "Tahun ajaran belum tersedia"}</small></div></Link>
           <div className="topbar-actions" ref={menuArea}>
             <button className="notification-button" type="button" aria-label={`Notifikasi${unreadNotifications.length ? `, ${unreadNotifications.length} belum dibaca` : ""}`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }}><Bell />{unreadNotifications.length > 0 && <i />}</button>
             <button className="profile-summary" type="button" aria-label={`Buka menu keluarga, anak aktif ${child.name}`} aria-expanded={profileOpen} onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }}><span>{child.initials}</span><div><strong>{identity.name}</strong><small>{identity.role === "ADMIN" ? "Administrator · Mode Wali" : `Orang Tua ${child.firstName}`}</small></div><ChevronDown aria-hidden="true" /></button>
-            {notificationsOpen && <div className="notification-menu" role="menu"><header><div><strong>Notifikasi {child.firstName}</strong><small>{unreadNotifications.length ? `${unreadNotifications.length} kabar belum dibaca` : "Semua kabar sudah dibaca"}</small></div><button type="button" onClick={markAllNotificationsRead} disabled={!unreadNotifications.length}>Tandai semua dibaca</button></header>{unreadNotifications.length ? unreadNotifications.map((item) => <Link key={item.id} href={withChild(item.href)} className="fresh" onClick={() => markNotificationRead(item.id)}><span>{item.kind === "payment" ? "Rp" : "✦"}</span><div><strong>{item.title}</strong><small>{item.copy}</small><time>{formatNotificationDate(item.occurredAt)}</time></div><i /></Link>) : <p className="notification-empty">Belum ada pembaruan baru.</p>}</div>}
-            {profileOpen && <div className={`family-menu ${linkedStudents.length ? "" : "without-students"}`} role="menu"><header><span>{identity.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span><div><strong>{identity.name}</strong><small>Wali murid</small></div></header>{linkedStudents.length > 1 && <><p>PILIH ANAK</p>{linkedStudents.map((item) => <button key={item.id} type="button" role="menuitemradio" aria-checked={item.id === selectedStudentId} className={item.id === selectedStudentId ? "active" : ""} disabled={selectingStudentId !== null} onClick={() => void selectStudent(item.id)}><span>{item.initials}</span><div><strong>{item.name}</strong><small>{item.nickname || item.name}</small></div>{item.id === selectedStudentId && <Check />}</button>)}</>}<footer><Link href={withChild("/dashboard/profile")}><UserRound /> Profil {identity.name}</Link><LogoutButton className="family-menu-logout" onLogout={() => setProfileOpen(false)} /></footer></div>}
+            {notificationsOpen && <div className="notification-menu" role="menu"><header><div><strong>Notifikasi {child.firstName}</strong><small>{unreadNotifications.length ? `${unreadNotifications.length} kabar belum dibaca` : "Semua kabar sudah dibaca"}</small></div><button type="button" onClick={() => markNotificationsRead(notifications.map((item) => item.id))} disabled={!unreadNotifications.length}>Tandai semua dibaca</button></header>{unreadNotifications.length ? unreadNotifications.map((item) => <Link key={item.id} href={item.href} className="fresh" onClick={() => markNotificationsRead([item.id])}><span>{item.kind === "payment" ? "Rp" : "✦"}</span><div><strong>{item.title}</strong><small>{item.copy}</small><time>{formatNotificationDate(item.occurredAt)}</time></div><i /></Link>) : <p className="notification-empty">Belum ada pembaruan baru.</p>}</div>}
+            {profileOpen && <div className={`family-menu ${linkedStudents.length ? "" : "without-students"}`} role="menu"><header><span>{initialsOf(identity.name)}</span><div><strong>{identity.name}</strong><small>Wali murid</small></div></header>{linkedStudents.length > 1 && <><p>PILIH ANAK</p>{linkedStudents.map((item) => <button key={item.id} type="button" role="menuitemradio" aria-checked={item.id === selectedStudentId} className={item.id === selectedStudentId ? "active" : ""} disabled={selectingStudentId !== null} onClick={() => void selectStudent(item.id)}><span>{item.initials}</span><div><strong>{item.name}</strong><small>{item.nickname || item.name}</small></div>{item.id === selectedStudentId && <Check />}</button>)}</>}<footer><Link href="/dashboard/profile"><UserRound /> Profil {identity.name}</Link><LogoutButton className="family-menu-logout" onLogout={() => setProfileOpen(false)} /></footer></div>}
           </div>
         </header>
         <main className="portal-main" id="main">{children}</main>

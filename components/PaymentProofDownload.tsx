@@ -4,6 +4,8 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 import { latestPayment, verifiedPaymentProofUrl } from "@/lib/payments";
 import type { ApiPayment } from "@/lib/payments";
+import { records } from "@/lib/records";
+import { proxyUrl } from "@/lib/routes";
 
 export default function PaymentProofDownload({ invoiceId, variant = "button" }: { invoiceId: string; variant?: "button" | "link" }) {
   const [downloading, setDownloading] = useState(false);
@@ -15,9 +17,8 @@ export default function PaymentProofDownload({ invoiceId, variant = "button" }: 
     try {
       // Refetch the payment record at click time, like activities are refetched
       // on page load, so we do not rely on an old one-hour presigned URL.
-      const paymentResponse = await fetch(`/api/proxy/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`, { cache: "no-store" });
-      const payload = await paymentResponse.json() as ApiPayment[] | { results?: ApiPayment[] };
-      const payments = Array.isArray(payload) ? payload : payload.results || [];
+      const paymentResponse = await fetch(proxyUrl(`payments?student_invoice_id=${encodeURIComponent(invoiceId)}`), { cache: "no-store" });
+      const payments = records<ApiPayment>(await paymentResponse.json());
       const currentUrl = verifiedPaymentProofUrl(latestPayment(payments));
       if (!paymentResponse.ok || !currentUrl) throw new Error("Bukti pembayaran tidak tersedia.");
 

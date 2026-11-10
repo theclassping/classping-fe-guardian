@@ -12,6 +12,12 @@ export type GuardianProfile = {
 
 export type NewGuardianProfile = GuardianProfile & { first_name: string; last_name: string };
 
+/** User id a guardian record belongs to, whether the API sends `user` as an id, as `{ id }`, or `user_id`. NaN when absent. */
+export function guardianUserId(guardian: { user?: unknown; user_id?: unknown }) {
+  const user = guardian.user;
+  return Number(user && typeof user === "object" ? (user as { id?: unknown }).id : user ?? guardian.user_id);
+}
+
 export function isCurrentGuardian(guardian: GuardianProfile, identity: GuardianIdentity) {
   if (guardian.user_id && identity.id) return guardian.user_id === identity.id;
   return Boolean(guardian.id && identity.guardian_id && guardian.id === identity.guardian_id);
@@ -22,10 +28,9 @@ export function linkedGuardianProfiles(student: Record<string, unknown>, details
   return relations.flatMap((relation) => {
     const guardian = relation.guardian || details[String(relation.guardian_id)] || { id: relation.guardian_id, name: relation.guardian_name, email: relation.guardian_email, phone_number: relation.guardian_phone_number };
     if (!guardian || typeof guardian !== "object") return [];
-    const userId = typeof guardian.user === "object" && guardian.user ? guardian.user.id : guardian.user ?? guardian.user_id;
     return [{
       id: Number(guardian.id) || undefined,
-      user_id: Number(userId) || undefined,
+      user_id: guardianUserId(guardian) || undefined,
       name: String(guardian.name || ""),
       email: String(guardian.email || ""),
       phone_number: String(guardian.phone_number || ""),

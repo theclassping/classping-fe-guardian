@@ -12,10 +12,10 @@ export default async function AssessmentDetail({ params }: { params: Promise<{ s
   const { slug } = await params;
   const assessment = assessments.find((item) => item.slug === slug);
   if (!assessment) notFound();
-  const { child, studentId } = await selectedStudentForRequest();
+  const { child, childQuery } = await selectedStudentForRequest();
   return (
     <article className="detail-page assessment-detail">
-      <Link className="back-link" href={`/dashboard/assessments?${studentId ? `student_id=${encodeURIComponent(studentId)}` : `child=${child.id}`}`}><ArrowLeft /> Kembali ke penilaian</Link>
+      <Link className="back-link" href={`/dashboard/assessments${childQuery}`}><ArrowLeft /> Kembali ke penilaian</Link>
       <header className="report-header panel"><span className="report-icon"><Award /></span><div><p className="eyebrow">{assessment.status}</p><h1>{assessment.title}</h1><p>{child.name} · {assessment.period}</p></div></header>
       <section className="score-panel panel">
         <div className="section-title"><div><span>RINGKASAN CAPAIAN</span><h2>Area perkembangan</h2></div></div>

@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { Mail, Phone, UserRound } from "lucide-react";
-import { cookies } from "next/headers";
-import { decodeIdentity } from "@/lib/auth";
-import { guardianForBackend, sessionStudentId, studentsForGuardian } from "@/lib/backend";
+import { guardianForBackend, sessionIdentity, sessionStudentId, studentsForGuardian } from "@/lib/backend";
+import { initialsOf } from "@/lib/format";
 import LinkedStudentActivityLink from "@/components/LinkedStudentActivityLink";
 import { redirect } from "next/navigation";
 
 export default async function GuardianProfilePage({ searchParams }: { searchParams: Promise<{ child?: string; student_id?: string }> }) {
   const query = await searchParams;
-  const identity = decodeIdentity((await cookies()).get("guardian_identity")?.value);
+  const identity = await sessionIdentity();
   if (!identity) redirect("/login");
   const [students, guardian, currentStudentId] = await Promise.all([
     identity.guardian_id ? studentsForGuardian(identity.guardian_id) : Promise.resolve(identity.students || []),
@@ -17,7 +16,7 @@ export default async function GuardianProfilePage({ searchParams }: { searchPara
   ]);
   const displayName = guardian?.name?.trim() || identity.name;
   const activeStudentId = query.student_id || currentStudentId || identity.student_id;
-  const initials = displayName.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const initials = initialsOf(displayName);
   return (
     <div className="profile-page">
       <section className="profile-hero panel"><span>{initials}</span><div><p className="eyebrow">PROFIL WALI MURID</p><h1>{displayName}</h1><p>Kelola profil dan siswa yang terhubung ke akun Anda.</p></div><Link className="outline-button" href="/dashboard/activities">Kembali</Link></section>

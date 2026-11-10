@@ -4,24 +4,20 @@ import Link from "next/link";
 import { ArrowRight, CreditCard, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ChildId, Invoice } from "@/lib/data";
-import { invoicePaymentState } from "@/lib/payments";
-import { checkoutHref, rupiah } from "@/lib/gateway";
-import { useGatewayOverlay } from "@/components/useGatewayOverlay";
+import { invoicePaymentState, isPayableOnline, totalRemaining } from "@/lib/payments";
+import { checkoutHref } from "@/lib/gateway";
+import { rupiah } from "@/lib/format";
+import { childQueryFor } from "@/lib/routes";
 
 function normalizeStatus(status: string) {
   return status.toLowerCase().replace(/\s+/g, "_");
 }
 
-export function isPayableOnline(invoice: Invoice) {
-  return invoicePaymentState(invoice) === "unpaid" && invoice.paidAmount < invoice.billAmount && invoice.payableViaGateway !== false && !invoice.pendingGatewayPayment;
-}
-
-export default function PaymentList({ items, childId, studentId, gatewayEnabled = false }: { items: readonly Invoice[]; childId: ChildId; studentId?: string; gatewayEnabled?: boolean }) {
-  const invoices = useGatewayOverlay(items);
+export default function PaymentList({ items: invoices, childId, studentId, gatewayEnabled = false }: { items: readonly Invoice[]; childId: ChildId; studentId?: string; gatewayEnabled?: boolean }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
-  const childQuery = studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${childId}`;
+  const childQuery = childQueryFor(studentId, childId);
   const filtered = useMemo(() => invoices.filter((item) => {
     const matchesQuery = `${item.feeType} ${item.month} ${item.slug}`.toLowerCase().includes(query.toLowerCase());
     const matchesStatus = status === "all" || normalizeStatus(item.status) === status;
@@ -29,7 +25,7 @@ export default function PaymentList({ items, childId, studentId, gatewayEnabled 
   }), [invoices, query, status]);
   const payable = useMemo(() => invoices.filter(isPayableOnline), [invoices]);
   const chosen = payable.filter((invoice) => selected.includes(invoice.slug));
-  const total = chosen.reduce((sum, invoice) => sum + Math.max(0, invoice.billAmount - invoice.paidAmount), 0);
+  const total = totalRemaining(chosen);
 
   function toggle(slug: string) {
     setSelected((current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug]);

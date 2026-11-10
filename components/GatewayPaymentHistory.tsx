@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayments, formatDateTime, gatewayPaymentHref, isExpired, rupiah, STATUS_LABELS, statusTone, type GatewayPaymentSummary } from "@/lib/gateway";
+import { fetchGatewayPayments, gatewayPaymentHref, isExpired, STATUS_LABELS, statusTone, type GatewayPaymentSummary } from "@/lib/gateway";
+import { formatDateTime, rupiah } from "@/lib/format";
 
 export default function GatewayPaymentHistory({ studentId, childQuery }: { studentId?: string; childQuery: string }) {
   const [payments, setPayments] = useState<GatewayPaymentSummary[] | null>(null);

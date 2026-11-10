@@ -1,15 +1,13 @@
-// Payment gateway (Rintisan) flow for guardians, as specified in the
-// "Proposal Payment Gateway & Penarikan Dana" (draft v5, 7 Nov 2026):
+// Payment gateway (Rintisan) flow for guardians, against the backend's payment_gateway app:
+//   GET  /api/gateway/invoices?student_id=…   → which invoices can be paid online / are locked (read in lib/backend.ts)
 //   GET  /api/gateway/channels?invoice_ids=…  → channels with fee + total per method
 //   POST /api/gateway/checkout {invoice_ids, channel} → payment instructions
 //   GET  /api/gateway/payments, /api/gateway/payments/{id} → history + polling
 //   POST /api/gateway/payments/{id}/cancel → guardian abandons a pending checkout
-//        (assumed endpoint: the draft proposal had no cancel; the backend is adding one)
 // The manual proof-upload flow stays untouched; this module only adds the
 // online option for branches with `is_payment_gateway_enabled`.
-//
-// While the backend is being prepared, NEXT_PUBLIC_PAYMENT_GATEWAY_MODE=dummy
-// routes every call to the in-browser simulation in `gatewayDummy.ts`.
+import { records } from "@/lib/records";
+import { proxyUrl } from "@/lib/routes";
 
 export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "qris";
 /** `failed`: the provider could not create the billing, so the parent never received payment instructions. */
@@ -96,21 +94,6 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
   PAYMENT_NOT_CANCELLABLE: "Pembayaran ini tidak dapat dibatalkan. Tunggu sampai batas waktu berakhir.",
 };
 
-/** Tolerates values saved with quotes, spaces, or different casing in hosting dashboards. */
-export function isDummyGatewayMode(value = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_MODE) {
-  return (value || "").trim().replace(/^["']|["']$/g, "").toLowerCase() === "dummy";
-}
-
-export function gatewayMode(): "api" | "dummy" {
-  return isDummyGatewayMode() ? "dummy" : "api";
-}
-
-export function rupiah(value: string | number) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return "—";
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
-}
-
 export const METHOD_LABELS: Record<GatewayMethod, string> = {
   virtual_account: "Virtual Account",
   credit_card: "Kartu Kredit",
@@ -149,13 +132,6 @@ export function groupChannels(channels: readonly GatewayChannel[]) {
   return order
     .map((method) => ({ method, label: METHOD_LABELS[method], channels: channels.filter((channel) => channel.payment_method === method) }))
     .filter((group) => group.channels.length > 0);
-}
-
-export function formatDateTime(value?: string | null, withTime = true) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", ...(withTime ? { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta", timeZoneName: "short" } : {}) }).format(date);
 }
 
 export function isExpired(payment: Pick<GatewayPayment, "status" | "expires_at">, now = new Date()) {
@@ -214,26 +190,22 @@ async function readError(response: Response, fallback: string): Promise<never> {
   throw error;
 }
 
-async function dummy() {
-  return import("@/lib/gatewayDummy");
+/** Browser → backend through the app's /api/proxy route, which adds the session token. */
+async function gatewayRequest(path: string, init: RequestInit = {}) {
+  return fetch(proxyUrl(path), { credentials: "include", cache: "no-store", ...init });
 }
 
-export type ChannelQuery = { invoiceIds: readonly string[]; invoiceTotal: number };
-
-export async function fetchChannels(query: ChannelQuery): Promise<GatewayChannelsResponse> {
-  if (gatewayMode() === "dummy") return (await dummy()).dummyChannels(query);
-  const response = await fetch(`/api/proxy/gateway/channels/?invoice_ids=${encodeURIComponent(query.invoiceIds.join(","))}`, { credentials: "include", cache: "no-store" });
+export async function fetchChannels(invoiceIds: readonly string[]): Promise<GatewayChannelsResponse> {
+  const response = await gatewayRequest(`gateway/channels?invoice_ids=${encodeURIComponent(invoiceIds.join(","))}`);
   if (!response.ok) await readError(response, "Metode pembayaran tidak dapat dimuat.");
   return response.json();
 }
 
-export type CheckoutRequest = { invoiceIds: readonly string[]; channel: string; idempotencyKey: string; items?: GatewayPaymentItem[] };
+export type CheckoutRequest = { invoiceIds: readonly string[]; channel: string; idempotencyKey: string };
 
 export async function createCheckout(request: CheckoutRequest): Promise<GatewayPayment> {
-  if (gatewayMode() === "dummy") return (await dummy()).dummyCheckout(request);
-  const response = await fetch("/api/proxy/gateway/checkout/", {
+  const response = await gatewayRequest("gateway/checkout", {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json", "Idempotency-Key": request.idempotencyKey },
     body: JSON.stringify({ invoice_ids: request.invoiceIds.map((id) => (/^\d+$/.test(id) ? Number(id) : id)), channel: request.channel }),
   });
@@ -242,19 +214,16 @@ export async function createCheckout(request: CheckoutRequest): Promise<GatewayP
 }
 
 export async function fetchGatewayPayment(id: number | string): Promise<GatewayPayment | null> {
-  if (gatewayMode() === "dummy") return (await dummy()).dummyPayment(id);
-  const response = await fetch(`/api/proxy/gateway/payments/${encodeURIComponent(String(id))}/`, { credentials: "include", cache: "no-store" });
+  const response = await gatewayRequest(`gateway/payments/${encodeURIComponent(String(id))}`);
   if (response.status === 404 || response.status === 403) return null;
   if (!response.ok) await readError(response, "Status pembayaran tidak dapat dimuat.");
   return response.json();
 }
 
 export async function fetchGatewayPayments(studentId?: string): Promise<GatewayPaymentSummary[]> {
-  if (gatewayMode() === "dummy") return (await dummy()).dummyPayments();
-  const response = await fetch(`/api/proxy/gateway/payments/${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ""}`, { credentials: "include", cache: "no-store" });
+  const response = await gatewayRequest(`gateway/payments${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ""}`);
   if (!response.ok) await readError(response, "Riwayat pembayaran online tidak dapat dimuat.");
-  const payload = await response.json() as GatewayPaymentSummary[] | { results?: GatewayPaymentSummary[] };
-  return Array.isArray(payload) ? payload : payload.results || [];
+  return records<GatewayPaymentSummary>(await response.json());
 }
 
 export function newIdempotencyKey() {
@@ -262,8 +231,7 @@ export function newIdempotencyKey() {
 }
 
 export async function cancelGatewayPayment(id: number | string): Promise<GatewayPayment> {
-  if (gatewayMode() === "dummy") return (await dummy()).dummyCancel(id);
-  const response = await fetch(`/api/proxy/gateway/payments/${encodeURIComponent(String(id))}/cancel/`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } });
+  const response = await gatewayRequest(`gateway/payments/${encodeURIComponent(String(id))}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" } });
   if (!response.ok) await readError(response, "Pembayaran tidak dapat dibatalkan.");
   return response.json();
 }

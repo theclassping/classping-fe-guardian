@@ -1,60 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { decodeIdentity, linkedStudentIds } from "@/lib/auth";
+import { accessTokenClaims } from "@/lib/base64url";
+import { backendUrl } from "@/lib/env";
+import { clearSessionCookies, SESSION_COOKIES, sessionCookieOptions } from "@/lib/session";
 
-/** Read per call so test and deployment environments can set it after module load. */
-const apiBaseUrl = () => process.env.DJANGO_API_URL?.replace(/\/$/, "");
 /** Refresh the access token when it expires within this window, so a page render never starts with a token that dies mid-request. */
 const REFRESH_LEEWAY_SECONDS = 60;
 const ACCESS_COOKIE_MAX_AGE = 60 * 60 * 24;
 
-function decodeBase64Url(value: string) {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
+/** App API routes that call the backend with the session's access token (browser `fetch` calls, e.g. every online-payment action). */
+const SESSION_API_PREFIXES = ["/api/proxy/", "/api/notifications", "/api/receipts/"];
 
 function hasLinkedStudent(identityCookie?: string) {
-  if (!identityCookie) return false;
-
-  try {
-    const identity = JSON.parse(decodeBase64Url(identityCookie)) as {
-      role?: string;
-      student_id?: number | string;
-      students?: { id?: number | string }[];
-    };
-
-    if (identity.role !== "PARENT" && identity.role !== "ADMIN") return false;
-    return Number(identity.student_id) > 0 || Boolean(identity.students?.some((student) => Number(student.id) > 0));
-  } catch {
-    return false;
-  }
-}
-
-/** Reads the `exp` claim of a JWT without verifying it; the backend remains the authority. Returns undefined for anything unreadable. */
-export function accessTokenExpiry(token?: string): number | undefined {
-  if (!token) return undefined;
-  try {
-    const payload = JSON.parse(decodeBase64Url(token.split(".")[1] || "")) as { exp?: unknown };
-    return typeof payload.exp === "number" ? payload.exp : undefined;
-  } catch {
-    return undefined;
-  }
+  const identity = decodeIdentity(identityCookie);
+  return Boolean(identity && linkedStudentIds(identity).size);
 }
 
 function accessTokenNeedsRefresh(token?: string, now = Date.now() / 1000) {
   if (!token) return true;
-  const expiry = accessTokenExpiry(token);
-  return expiry !== undefined && expiry - now <= REFRESH_LEEWAY_SECONDS;
+  const { exp } = accessTokenClaims(token);
+  return exp !== undefined && exp - now <= REFRESH_LEEWAY_SECONDS;
 }
 
 type RenewedTokens = { access: string; refresh?: string };
 type RefreshOutcome = RenewedTokens | "expired" | "unavailable";
 
 async function refreshAccessToken(refreshToken: string): Promise<RefreshOutcome> {
-  const apiBase = apiBaseUrl();
-  if (!apiBase) return "unavailable";
+  const url = backendUrl("/api/auth/refresh/");
+  if (!url) return "unavailable";
   try {
-    const response = await fetch(`${apiBase}/api/auth/refresh/`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: refreshToken }),
@@ -70,46 +45,34 @@ async function refreshAccessToken(refreshToken: string): Promise<RefreshOutcome>
   }
 }
 
-function hasValidSession(accessToken?: string, identityCookie?: string) {
-  return Boolean(
-      accessToken && hasLinkedStudent(identityCookie),
-  );
-}
-
-function clearSession(response: NextResponse) {
-  response.cookies.delete("access_token");
-  response.cookies.delete("refresh_token");
-  response.cookies.delete("guardian_identity");
-  response.cookies.delete("current_student_id");
-  return response;
-}
-
-function redirectToLogin(request: NextRequest, next: string) {
+function redirectToLogin(request: NextRequest) {
   const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("next", next);
-  return clearSession(NextResponse.redirect(loginUrl));
+  loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  return clearSessionCookies(NextResponse.redirect(loginUrl));
+}
+
+function sessionExpiredResponse() {
+  return clearSessionCookies(NextResponse.json({ detail: "Sesi Anda telah berakhir. Silakan masuk kembali." }, { status: 401 }));
 }
 
 function withRenewedCookies(response: NextResponse, renewed?: RenewedTokens) {
   if (!renewed) return response;
-  const attributes = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: ACCESS_COOKIE_MAX_AGE };
-  response.cookies.set({ name: "access_token", value: renewed.access, ...attributes });
-  if (renewed.refresh) response.cookies.set({ name: "refresh_token", value: renewed.refresh, ...attributes });
+  const options = sessionCookieOptions({ maxAge: ACCESS_COOKIE_MAX_AGE });
+  response.cookies.set({ name: SESSION_COOKIES.accessToken, value: renewed.access, ...options });
+  if (renewed.refresh) response.cookies.set({ name: SESSION_COOKIES.refreshToken, value: renewed.refresh, ...options });
   return response;
 }
 
-/** App API routes that call the backend with the session's access token (browser `fetch` calls, e.g. every online-payment action). */
-const SESSION_API_PREFIXES = ["/api/proxy/", "/api/notifications", "/api/receipts/"];
-
-function sessionExpiredResponse() {
-  return clearSession(NextResponse.json({ detail: "Sesi Anda telah berakhir. Silakan masuk kembali." }, { status: 401 }));
+/** Continue to the page or route, with this request's cookie header carrying any renewed token. */
+function forward(request: NextRequest, renewed?: RenewedTokens) {
+  return withRenewedCookies(NextResponse.next({ request: { headers: request.headers } }), renewed);
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  let accessToken = request.cookies.get("access_token")?.value;
-  const refreshToken = request.cookies.get("refresh_token")?.value;
-  const identity = request.cookies.get("guardian_identity")?.value;
+  let accessToken = request.cookies.get(SESSION_COOKIES.accessToken)?.value;
+  const refreshToken = request.cookies.get(SESSION_COOKIES.refreshToken)?.value;
+  const identity = request.cookies.get(SESSION_COOKIES.identity)?.value;
   const sessionApi = SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const protectedPath = pathname.startsWith("/dashboard") || pathname === "/activities" || sessionApi;
   let renewed: RenewedTokens | undefined;
@@ -117,42 +80,34 @@ export async function proxy(request: NextRequest) {
   // Renew an expired (or missing) access token before the page renders or the API call is forwarded, instead of letting the backend reject it.
   if (protectedPath && refreshToken && hasLinkedStudent(identity) && accessTokenNeedsRefresh(accessToken)) {
     const outcome = await refreshAccessToken(refreshToken);
-    if (outcome === "expired") {
-      return sessionApi ? sessionExpiredResponse() : redirectToLogin(request, `${pathname}${request.nextUrl.search}`);
-    }
+    if (outcome === "expired") return sessionApi ? sessionExpiredResponse() : redirectToLogin(request);
     if (outcome !== "unavailable") {
       renewed = outcome;
       accessToken = outcome.access;
       // Update the incoming cookie header too, so this request's server components already read the new token.
-      request.cookies.set("access_token", outcome.access);
-      if (outcome.refresh) request.cookies.set("refresh_token", outcome.refresh);
+      request.cookies.set(SESSION_COOKIES.accessToken, outcome.access);
+      if (outcome.refresh) request.cookies.set(SESSION_COOKIES.refreshToken, outcome.refresh);
     }
   }
 
   // API routes keep their own auth checks and error bodies; the proxy only hands them a fresh token.
-  if (sessionApi) return withRenewedCookies(NextResponse.next({ request: { headers: request.headers } }), renewed);
+  if (sessionApi) return forward(request, renewed);
 
-  const validSession = hasValidSession(accessToken, identity);
+  const validSession = Boolean(accessToken && hasLinkedStudent(identity));
 
-  if (pathname === "/login" && validSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (pathname === "/login") {
+    if (validSession) return NextResponse.redirect(new URL("/dashboard", request.url));
+    return accessToken || identity ? clearSessionCookies(NextResponse.next()) : NextResponse.next();
   }
 
+  if (!validSession) return redirectToLogin(request);
+
   if (pathname === "/activities") {
-    if (!validSession) return redirectToLogin(request, `${pathname}${request.nextUrl.search}`);
     const target = new URL(`/dashboard/activities${request.nextUrl.search}`, request.url);
     return withRenewedCookies(NextResponse.rewrite(target, { request: { headers: request.headers } }), renewed);
   }
 
-  if (pathname.startsWith("/dashboard") && !validSession) {
-    return redirectToLogin(request, `${pathname}${request.nextUrl.search}`);
-  }
-
-  if (pathname === "/login" && (accessToken || identity)) {
-    return clearSession(NextResponse.next());
-  }
-
-  return withRenewedCookies(NextResponse.next({ request: { headers: request.headers } }), renewed);
+  return forward(request, renewed);
 }
 
 export const config = {

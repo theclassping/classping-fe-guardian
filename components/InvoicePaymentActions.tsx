@@ -3,23 +3,18 @@
 import Link from "next/link";
 import { ArrowRight, Clock3, CreditCard } from "lucide-react";
 import type { ChildProfile, Invoice } from "@/lib/data";
-import { invoicePaymentState } from "@/lib/payments";
-import { checkoutHref, formatDateTime, gatewayPaymentHref } from "@/lib/gateway";
+import { isPayableOnline } from "@/lib/payments";
+import { checkoutHref, gatewayPaymentHref } from "@/lib/gateway";
+import { formatDateTime } from "@/lib/format";
 import PaymentReceiptDialog from "@/components/PaymentReceiptDialog";
-import { useGatewayOverlay } from "@/components/useGatewayOverlay";
-import { isPayableOnline } from "@/components/PaymentList";
 
 /**
  * Actions for an unpaid invoice. The manual proof-upload flow is always kept;
  * when the branch has the payment gateway, an online option is offered first,
  * and an invoice locked by a pending online checkout points to its instructions.
  */
-export default function InvoicePaymentActions({ child, invoice, gatewayEnabled, childQuery, triggerId }: { child: ChildProfile; invoice: Invoice; gatewayEnabled: boolean; childQuery: string; triggerId?: string }) {
-  const [current] = useGatewayOverlay([invoice]);
+export default function InvoicePaymentActions({ child, invoice: current, gatewayEnabled, childQuery, triggerId }: { child: ChildProfile; invoice: Invoice; gatewayEnabled: boolean; childQuery: string; triggerId?: string }) {
   const pending = current.pendingGatewayPayment;
-  if (invoicePaymentState(current) === "paid" && current.method === "Pembayaran online") {
-    return <div className="payment-result gateway-paid" role="status"><CreditCard aria-hidden="true" /><div><strong>Lunas melalui pembayaran online</strong><p>Tagihan ini sudah dibayar lewat pembayaran online dan tercatat otomatis.</p></div></div>;
-  }
   if (pending) {
     return (
       <div className="gateway-pending-card" role="status">
