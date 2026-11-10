@@ -12,6 +12,9 @@ export type ChildProfile = {
   school: string;
   academicYear: string;
   badge: string;
+  /** Backend class and branch IDs used when requesting an upload URL. */
+  classId?: number;
+  branchId?: number;
 };
 
 export type Activity = {

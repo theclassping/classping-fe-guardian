@@ -273,13 +273,15 @@ export async function studentForBackend(studentId: number, fallback: import("@/l
   const classAssignment = activeClassStudent(item?.class_students, classStudentRecords);
   const classId = classAssignment?.class_id;
   const classRecord = classId ? await get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`) : null;
+  const classIdNumber = Number(classId);
+  const branchIdNumber = Number(classRecord?.branch);
   const className = formatClassLabel(classRecord?.name || classAssignment?.class_name, classRecord?.branch_name)
     || "Kelas belum tersedia";
   if (!item?.id) {
-    return { ...fallback, className, classCode: className };
+    return { ...fallback, className, classCode: className, classId: Number.isInteger(classIdNumber) && classIdNumber > 0 ? classIdNumber : undefined, branchId: Number.isInteger(branchIdNumber) && branchIdNumber > 0 ? branchIdNumber : undefined };
   }
   const name = [item.first_name, item.middle_name, item.last_name].filter(Boolean).join(" ") || fallback.name;
-  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), className, classCode: className, id: fallback.id };
+  return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), className, classCode: className, classId: Number.isInteger(classIdNumber) && classIdNumber > 0 ? classIdNumber : undefined, branchId: Number.isInteger(branchIdNumber) && branchIdNumber > 0 ? branchIdNumber : undefined, id: fallback.id };
 }
 
 export async function selectedStudentForRequest() {

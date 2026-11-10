@@ -41,7 +41,7 @@ export default function PaymentReceiptDialog({ child, invoices, triggerLabel = "
     try {
       const upload = await resizeImageForUpload(receipt);
       if (upload.size > 10 * 1024 * 1024) throw new Error("Ukuran bukti maksimal 10 MB.");
-      const presignResponse = await fetch("/api/proxy/media/presign/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: upload.name, content_type: upload.type, size: upload.size, expires_in: 3600 }) });
+      const presignResponse = await fetch("/api/proxy/media/presign/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: upload.name, content_type: upload.type, size: upload.size, purpose: "payment", class_id: child.classId, branch_id: child.branchId, expires_in: 3600 }) });
       const presign = (await presignResponse.json()) as { file_key?: string; presigned_url?: string; detail?: string };
       if (!presignResponse.ok || !presign.file_key || !presign.presigned_url) throw new Error(presign.detail || "Bukti pembayaran tidak dapat disiapkan.");
       const uploadResponse = await fetch(presign.presigned_url, { method: "PUT", headers: { "Content-Type": upload.type }, body: upload });
