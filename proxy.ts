@@ -98,18 +98,28 @@ function withRenewedCookies(response: NextResponse, renewed?: RenewedTokens) {
   return response;
 }
 
+/** App API routes that call the backend with the session's access token (browser `fetch` calls, e.g. every online-payment action). */
+const SESSION_API_PREFIXES = ["/api/proxy/", "/api/notifications", "/api/receipts/"];
+
+function sessionExpiredResponse() {
+  return clearSession(NextResponse.json({ detail: "Sesi Anda telah berakhir. Silakan masuk kembali." }, { status: 401 }));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   let accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
   const identity = request.cookies.get("guardian_identity")?.value;
-  const protectedPath = pathname.startsWith("/dashboard") || pathname === "/activities";
+  const sessionApi = SESSION_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const protectedPath = pathname.startsWith("/dashboard") || pathname === "/activities" || sessionApi;
   let renewed: RenewedTokens | undefined;
 
-  // Renew an expired (or missing) access token before the page renders, instead of letting every backend read fail silently.
+  // Renew an expired (or missing) access token before the page renders or the API call is forwarded, instead of letting the backend reject it.
   if (protectedPath && refreshToken && hasLinkedStudent(identity) && accessTokenNeedsRefresh(accessToken)) {
     const outcome = await refreshAccessToken(refreshToken);
-    if (outcome === "expired") return redirectToLogin(request, `${pathname}${request.nextUrl.search}`);
+    if (outcome === "expired") {
+      return sessionApi ? sessionExpiredResponse() : redirectToLogin(request, `${pathname}${request.nextUrl.search}`);
+    }
     if (outcome !== "unavailable") {
       renewed = outcome;
       accessToken = outcome.access;
@@ -118,6 +128,9 @@ export async function proxy(request: NextRequest) {
       if (outcome.refresh) request.cookies.set("refresh_token", outcome.refresh);
     }
   }
+
+  // API routes keep their own auth checks and error bodies; the proxy only hands them a fresh token.
+  if (sessionApi) return withRenewedCookies(NextResponse.next({ request: { headers: request.headers } }), renewed);
 
   const validSession = hasValidSession(accessToken, identity);
 
@@ -143,5 +156,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/activities", "/dashboard/:path*"],
+  matcher: ["/login", "/activities", "/dashboard/:path*", "/api/proxy/:path*", "/api/notifications", "/api/receipts/:path*"],
 };

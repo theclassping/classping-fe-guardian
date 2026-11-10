@@ -2,7 +2,7 @@
 // prepared. State lives in sessionStorage so checkout → instructions → paid
 // survives navigation within the tab. Never used when
 // NEXT_PUBLIC_PAYMENT_GATEWAY_MODE is not "dummy".
-import type { ChannelQuery, CheckoutRequest, GatewayChannel, GatewayChannelsResponse, GatewayMethod, GatewayPayment, PendingGatewayPayment } from "@/lib/gateway";
+import type { ChannelQuery, CheckoutRequest, GatewayChannel, GatewayChannelsResponse, GatewayMethod, GatewayPayment, GatewayPaymentSummary, PendingGatewayPayment } from "@/lib/gateway";
 
 const STORAGE_KEY = "classping.gateway.dummy";
 
@@ -65,7 +65,9 @@ export function deadlineFor(now = new Date()) {
 
 export async function dummyChannels(query: ChannelQuery): Promise<GatewayChannelsResponse> {
   await pause();
-  return { branch_id: 1, invoice_total: money(query.invoiceTotal), channels: channelsForTotal(query.invoiceTotal), deadline_date: deadlineFor().deadline_date };
+  const { expires_at } = deadlineFor();
+  const payment_window_minutes = Math.max(1, Math.round((Date.parse(expires_at) - Date.now()) / 60_000));
+  return { branch_id: 1, invoice_total: money(query.invoiceTotal), payment_window_minutes, expires_at, channels: channelsForTotal(query.invoiceTotal) };
 }
 
 function expireStale(store: Store, now = Date.now()) {
@@ -134,12 +136,18 @@ export async function dummyPayment(id: number | string): Promise<GatewayPayment 
   return store.payments.find((payment) => String(payment.id) === String(id)) || null;
 }
 
-export async function dummyPayments(): Promise<GatewayPayment[]> {
+/** Like `GET gateway/payments/`: summaries with `invoice_count`, without items or instructions. */
+export async function dummyPayments(): Promise<GatewayPaymentSummary[]> {
   await pause(120);
   const store = read();
   expireStale(store);
   write(store);
-  return store.payments;
+  return store.payments.map((payment) => ({
+    id: payment.id, payment_no: payment.payment_no, status: payment.status, channel_code: payment.channel_code,
+    channel_name: payment.channel_name, payment_method: payment.payment_method, invoice_total: payment.invoice_total,
+    transaction_fee: payment.transaction_fee, amount: payment.amount, expires_at: payment.expires_at,
+    created_at: payment.created_at, paid_at: payment.paid_at, invoice_count: payment.items.length,
+  }));
 }
 
 /** Simulates `POST gateway/payments/{id}/cancel`: only a pending checkout can be abandoned. */

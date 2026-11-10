@@ -12,7 +12,8 @@
 // routes every call to the in-browser simulation in `gatewayDummy.ts`.
 
 export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "qris";
-export type GatewayStatus = "pending" | "paid" | "expired" | "cancelled";
+/** `failed`: the provider could not create the billing, so the parent never received payment instructions. */
+export type GatewayStatus = "pending" | "paid" | "expired" | "cancelled" | "failed";
 
 export type GatewayChannel = {
   code: string;
@@ -22,11 +23,16 @@ export type GatewayChannel = {
   amount: string;
 };
 
+/** `GET gateway/channels/` (backend CheckoutQuoteSerializer). */
 export type GatewayChannelsResponse = {
+  student_id?: number;
   branch_id?: number;
+  invoice_ids?: number[];
   invoice_total: string;
+  /** How long payment instructions stay valid once the checkout is created. */
+  payment_window_minutes: number;
+  expires_at: string;
   channels: GatewayChannel[];
-  deadline_date: string;
 };
 
 export type GatewayPaymentItem = {
@@ -37,23 +43,33 @@ export type GatewayPaymentItem = {
   amount: string;
 };
 
-export type GatewayPayment = {
+/** A row of `GET gateway/payments/` (backend GatewayPaymentSummarySerializer): no instructions and no items. */
+export type GatewayPaymentSummary = {
   id: number | string;
   payment_no: string;
   status: GatewayStatus;
-  branch_id?: number;
+  student_id?: number;
+  student_name?: string;
   channel_code: string;
   channel_name?: string;
   payment_method: GatewayMethod;
   invoice_total: string;
   transaction_fee: string;
-  platform_fee?: string;
   amount: string;
-  payment_code: string | null;
-  payment_link: string | null;
   expires_at: string;
   created_at?: string;
   paid_at?: string | null;
+  invoice_count: number;
+  /** Paid after the invoice was already settled another way; the school refunds the parent. */
+  needs_refund?: boolean;
+};
+
+/** `GET gateway/payments/{id}/` and `POST gateway/checkout/` (backend GatewayPaymentDetailSerializer). */
+export type GatewayPayment = Omit<GatewayPaymentSummary, "invoice_count"> & {
+  branch_id?: number;
+  platform_fee?: string;
+  payment_code: string | null;
+  payment_link: string | null;
   items: GatewayPaymentItem[];
 };
 
@@ -112,10 +128,19 @@ export const STATUS_LABELS: Record<GatewayStatus, string> = {
   paid: "Lunas",
   expired: "Kedaluwarsa",
   cancelled: "Dibatalkan",
+  failed: "Gagal dibuat",
 };
 
-export function statusTone(status: GatewayStatus): "warning" | "success" | "late" | "partial" {
-  return status === "paid" ? "success" : status === "expired" ? "late" : status === "cancelled" ? "partial" : "warning";
+const STATUS_TONES: Record<GatewayStatus, "warning" | "success" | "late" | "partial"> = {
+  pending: "warning",
+  paid: "success",
+  expired: "late",
+  cancelled: "partial",
+  failed: "late",
+};
+
+export function statusTone(status: GatewayStatus) {
+  return STATUS_TONES[status];
 }
 
 /** Channels grouped by method, in the order shown to the parent. */
@@ -137,17 +162,22 @@ export function isExpired(payment: Pick<GatewayPayment, "status" | "expires_at">
   return payment.status === "expired" || (payment.status === "pending" && Date.parse(payment.expires_at) <= now.getTime());
 }
 
-/** Human countdown such as "1 hari 3 jam" or "45 menit"; empty once passed. */
-export function timeLeft(expiresAt: string, now = new Date()) {
-  const ms = Date.parse(expiresAt) - now.getTime();
-  if (!Number.isFinite(ms) || ms <= 0) return "";
-  const minutes = Math.floor(ms / 60_000);
+/** Human duration such as "1 hari 3 jam", "2 jam 5 menit" or "45 menit"; empty for zero or less. */
+export function durationLabel(totalMinutes: number) {
+  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return "";
+  const minutes = Math.floor(totalMinutes);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
   if (days > 0) return `${days} hari ${hours} jam`;
-  if (hours > 0) return `${hours} jam ${mins} menit`;
+  if (hours > 0) return mins ? `${hours} jam ${mins} menit` : `${hours} jam`;
   return `${Math.max(1, mins)} menit`;
+}
+
+/** Countdown to `expiresAt`; empty once passed. */
+export function timeLeft(expiresAt: string, now = new Date()) {
+  const ms = Date.parse(expiresAt) - now.getTime();
+  return ms > 0 ? durationLabel(Math.max(1, Math.floor(ms / 60_000))) : "";
 }
 
 export function parseInvoiceIds(value?: string | string[] | null): string[] {
@@ -219,11 +249,11 @@ export async function fetchGatewayPayment(id: number | string): Promise<GatewayP
   return response.json();
 }
 
-export async function fetchGatewayPayments(studentId?: string): Promise<GatewayPayment[]> {
+export async function fetchGatewayPayments(studentId?: string): Promise<GatewayPaymentSummary[]> {
   if (gatewayMode() === "dummy") return (await dummy()).dummyPayments();
   const response = await fetch(`/api/proxy/gateway/payments/${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ""}`, { credentials: "include", cache: "no-store" });
   if (!response.ok) await readError(response, "Riwayat pembayaran online tidak dapat dimuat.");
-  const payload = await response.json() as GatewayPayment[] | { results?: GatewayPayment[] };
+  const payload = await response.json() as GatewayPaymentSummary[] | { results?: GatewayPaymentSummary[] };
   return Array.isArray(payload) ? payload : payload.results || [];
 }
 
@@ -239,7 +269,7 @@ export async function cancelGatewayPayment(id: number | string): Promise<Gateway
 }
 
 /** Finds a payment by its number, for return URLs that carry only `payment_no`. */
-export async function findGatewayPaymentByNo(paymentNo: string): Promise<GatewayPayment | null> {
+export async function findGatewayPaymentByNo(paymentNo: string): Promise<GatewayPaymentSummary | null> {
   const payments = await fetchGatewayPayments();
   return payments.find((payment) => payment.payment_no === paymentNo) || null;
 }

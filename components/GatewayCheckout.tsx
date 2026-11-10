@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, Shop
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile, Invoice } from "@/lib/data";
-import { createCheckout, fetchChannels, formatDateTime, gatewayPaymentHref, groupChannels, newIdempotencyKey, rupiah, type GatewayChannelsResponse, type GatewayError } from "@/lib/gateway";
+import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, groupChannels, newIdempotencyKey, rupiah, type GatewayChannelsResponse, type GatewayError } from "@/lib/gateway";
 import { useGatewayOverlay } from "@/components/useGatewayOverlay";
 import { isPayableOnline } from "@/components/PaymentList";
 
@@ -104,7 +104,7 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
             <div><span>Total tagihan</span><strong>{rupiah(invoiceTotal)}</strong></div>
             <div><span>Biaya transaksi</span><strong>{selectedChannel ? rupiah(selectedChannel.transaction_fee) : "—"}</strong></div>
             <div className="is-total"><span>Total dibayar</span><strong>{selectedChannel ? rupiah(selectedChannel.amount) : rupiah(invoiceTotal)}</strong></div>
-            {channels?.deadline_date && <p>Instruksi pembayaran berlaku sampai {formatDateTime(`${channels.deadline_date}T23:59:59+07:00`)}.</p>}
+            {channels && durationLabel(channels.payment_window_minutes) && <p>Instruksi pembayaran berlaku {durationLabel(channels.payment_window_minutes)} setelah Anda menekan Bayar sekarang.</p>}
           </div>
         )}
 

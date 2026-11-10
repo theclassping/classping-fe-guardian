@@ -506,15 +506,58 @@ export async function activityForBackend(slug: string, childId: ChildId, fallbac
   } satisfies Activity;
 }
 
+/** A row of `GET /api/gateway/invoices/?student_id=` (backend PayableInvoiceSerializer). */
+type ApiPayableInvoice = {
+  id?: number;
+  payable?: boolean;
+  not_payable_reason?: string | null;
+  locked_until?: string | null;
+  active_gateway_payment_id?: number | null;
+};
+type GatewayPayability = Map<string, ApiPayableInvoice>;
+
+/**
+ * Online-payment state of the student's invoices, keyed by invoice id: whether each one can be
+ * paid online and which pending checkout locks it. The invoice endpoints do not carry this.
+ * `null` when it could not be read; the bills then keep their own state and the backend still
+ * rejects a locked invoice at checkout.
+ */
+async function gatewayPayabilityFor(studentId?: number): Promise<GatewayPayability | null> {
+  if (!studentId) return null;
+  const payload = await get<{ invoices?: ApiPayableInvoice[] }>(`/api/gateway/invoices/?student_id=${studentId}`);
+  if (!Array.isArray(payload?.invoices)) return null;
+  return new Map(payload.invoices.filter((row) => row.id != null).map((row) => [String(row.id), row]));
+}
+
+function withGatewayPayability(invoice: Invoice, payability: GatewayPayability | null): Invoice {
+  const row = payability?.get(invoice.slug);
+  if (!row) return invoice;
+  return {
+    ...invoice,
+    payableViaGateway: row.payable === true,
+    pendingGatewayPayment: row.active_gateway_payment_id
+      ? { id: row.active_gateway_payment_id, expiresAt: row.locked_until || undefined }
+      : undefined,
+  };
+}
+
 /** Resolves to the guardian's bills, or `null` when the backend could not be read (expired session, outage). Sample bills only appear in demo mode. */
 export async function invoicesForBackend(childId: ChildId, fallback: Invoice[], studentId?: number): Promise<Invoice[] | null> {
-  const payload = await get<ApiInvoice[] | { results?: ApiInvoice[] }>(studentId ? `/api/student-invoices/?student_id=${studentId}` : "/api/student-invoices/");
+  const [payload, payability] = await Promise.all([
+    get<ApiInvoice[] | { results?: ApiInvoice[] }>(studentId ? `/api/student-invoices/?student_id=${studentId}` : "/api/student-invoices/"),
+    gatewayPayabilityFor(studentId),
+  ]);
   const records = Array.isArray(payload) ? payload : payload?.results || null;
   if (!records) return demoMode ? fallback : null;
   const mapped = records
     .filter((item) => studentId ? Number(item.student_id) === studentId : childMatches(childId, item.class_name, item.student_name))
-    .map((item) => mapInvoice(item, childId));
+    .map((item) => withGatewayPayability(mapInvoice(item, childId), payability));
   return mapped;
+}
+
+/** Ends free text (e.g. a rejection reason typed by staff) with exactly one full stop. */
+function asSentence(text: string) {
+  return `${text.trim().replace(/[.!?]+$/, "")}.`;
 }
 
 export async function notificationsForBackend(studentId?: number): Promise<GuardianNotification[]> {
@@ -550,7 +593,7 @@ export async function notificationsForBackend(studentId?: number): Promise<Guard
     const rejected = payment?.status === "rejected" && invoiceStatus === "unpaid";
     const verified = invoiceStatus === "paid" || (isVerifiedPayment(payment) && invoiceStatus !== "unpaid");
     const copy = rejected
-      ? `Pembayaran Anda ditolak. ${payment.rejection_reason ? `Alasan: ${payment.rejection_reason}. ` : ""}Status tagihan kembali menjadi belum dibayar. Silakan unggah ulang bukti pembayaran atau hubungi pihak sekolah.`
+      ? `Pembayaran Anda ditolak. ${payment.rejection_reason ? `Alasan: ${asSentence(payment.rejection_reason)} ` : ""}Status tagihan kembali menjadi belum dibayar. Silakan unggah ulang bukti pembayaran atau hubungi pihak sekolah.`
       : verified
         ? "Pembayaran Anda telah diverifikasi. Status tagihan telah diperbarui menjadi lunas."
         : invoiceStatus === "payment_submitted"
@@ -631,11 +674,14 @@ export async function invoiceLookupForBackend(invoiceId: string, childId: ChildI
     if (demoMode) return fallback ? { state: "found", invoice: fallback } : { state: "missing" };
     return status === 404 || status === 403 ? { state: "missing" } : { state: "unavailable" };
   }
-  const invoice = mapInvoice(record, childId);
-  const paymentPayload = await get<ApiPayment[] | { results?: ApiPayment[] }>(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`);
+  const [paymentPayload, payability] = await Promise.all([
+    get<ApiPayment[] | { results?: ApiPayment[] }>(`/api/payments/?student_invoice_id=${encodeURIComponent(invoiceId)}`),
+    gatewayPayabilityFor(Number(record.student_id) || undefined),
+  ]);
   const payments = Array.isArray(paymentPayload) ? paymentPayload : paymentPayload?.results || [];
   const payment = latestPayment(payments);
-  return { state: "found", invoice: payment ? mapInvoice(record, childId, payment) : invoice };
+  const invoice = payment ? mapInvoice(record, childId, payment) : mapInvoice(record, childId);
+  return { state: "found", invoice: withGatewayPayability(invoice, payability) };
 }
 
 export async function invoiceForBackend(invoiceId: string, childId: ChildId, fallback?: Invoice) {

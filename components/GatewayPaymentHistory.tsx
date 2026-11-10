@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayments, formatDateTime, gatewayPaymentHref, isExpired, rupiah, STATUS_LABELS, statusTone, type GatewayPayment } from "@/lib/gateway";
+import { fetchGatewayPayments, formatDateTime, gatewayPaymentHref, isExpired, rupiah, STATUS_LABELS, statusTone, type GatewayPaymentSummary } from "@/lib/gateway";
 
 export default function GatewayPaymentHistory({ studentId, childQuery }: { studentId?: string; childQuery: string }) {
-  const [payments, setPayments] = useState<GatewayPayment[] | null>(null);
+  const [payments, setPayments] = useState<GatewayPaymentSummary[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function GatewayPaymentHistory({ studentId, childQuery }: { stude
             return (
               <li key={String(payment.id)}>
                 <Link href={gatewayPaymentHref(payment.id, childQuery)}>
-                  <div><strong>{payment.channel_name || payment.channel_code}</strong><small>{payment.payment_no} · {payment.items.length} tagihan · {formatDateTime(payment.paid_at || payment.created_at || payment.expires_at)}</small></div>
+                  <div><strong>{payment.channel_name || payment.channel_code}</strong><small>{payment.payment_no} · {payment.invoice_count} tagihan ·{formatDateTime(payment.paid_at || payment.created_at || payment.expires_at)}</small></div>
                   <span>{rupiah(payment.amount)}</span>
                   <span className={`status-badge ${statusTone(status)}`}>{STATUS_LABELS[status]}</span>
                   <ArrowRight aria-hidden="true" />

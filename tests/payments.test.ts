@@ -110,12 +110,50 @@ describe("guardian payment lifecycle", () => {
     expect(mapped?.[0].proofUrl).toBeUndefined();
   });
 
+  it("takes online-payment availability and locks from gateway/invoices, which the invoice list does not carry", async () => {
+    payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [
+      invoiceRecord,
+      { ...invoiceRecord, id: 24 },
+      { ...invoiceRecord, id: 25 },
+    ];
+    payloads[`${apiOrigin}/api/gateway/invoices/?student_id=6`] = {
+      student_id: 6, is_payment_gateway_enabled: true, payment_window_minutes: 60,
+      invoices: [
+        { id: 23, payable: true, not_payable_reason: null, locked_until: null, active_gateway_payment_id: null },
+        { id: 24, payable: false, not_payable_reason: "INVOICE_LOCKED", locked_until: "2026-11-11T11:00:00+07:00", active_gateway_payment_id: 5 },
+      ],
+    };
+    const { invoicesForBackend } = await import("@/lib/backend");
+    const [open, locked, unknown] = (await invoicesForBackend("alya", [], 6)) || [];
+
+    expect(open).toMatchObject({ slug: "23", payableViaGateway: true, pendingGatewayPayment: undefined });
+    expect(locked).toMatchObject({ slug: "24", payableViaGateway: false, pendingGatewayPayment: { id: 5, expiresAt: "2026-11-11T11:00:00+07:00" } });
+    // Not in the payability list: keeps the invoice's own state.
+    expect(unknown).toMatchObject({ slug: "25", payableViaGateway: true });
+  });
+
+  it("shows the lock on a single invoice too", async () => {
+    payloads[`${apiOrigin}/api/student-invoices/24/`] = { ...invoiceRecord, id: 24 };
+    payloads[`${apiOrigin}/api/gateway/invoices/?student_id=6`] = {
+      invoices: [{ id: 24, payable: false, not_payable_reason: "INVOICE_LOCKED", locked_until: "2026-11-11T11:00:00+07:00", active_gateway_payment_id: 5 }],
+    };
+    const { invoiceForBackend } = await import("@/lib/backend");
+    expect(await invoiceForBackend("24", "alya")).toMatchObject({ payableViaGateway: false, pendingGatewayPayment: { id: 5 } });
+  });
+
+  it("keeps the bills when gateway/invoices cannot be read", async () => {
+    payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [invoiceRecord];
+    const { invoicesForBackend } = await import("@/lib/backend");
+    expect(await invoicesForBackend("alya", [], 6)).toMatchObject([{ slug: "23", payableViaGateway: true }]);
+  });
+
   it("explains rejection and the retry action in the guardian notification", async () => {
     payloads[`${apiOrigin}/api/student-invoices/?student_id=6`] = [{ ...invoiceRecord, payment: rejectedPayment }];
     const { notificationsForBackend } = await import("@/lib/backend");
     const notifications = await notificationsForBackend(6);
-    expect(notifications[0].copy).toContain("Pembayaran ditolak.");
-    expect(notifications[0].copy).toContain(rejectedPayment.rejection_reason);
+    expect(notifications[0].copy).toContain("Pembayaran Anda ditolak.");
+    expect(notifications[0].copy).toContain(`Alasan: ${rejectedPayment.rejection_reason} Status`);
+    expect(notifications[0].copy).not.toContain("..");
     expect(notifications[0].copy).toContain("Status tagihan kembali menjadi belum dibayar.");
     expect(notifications[0].copy).toContain("Silakan unggah ulang bukti pembayaran atau hubungi pihak sekolah.");
   });

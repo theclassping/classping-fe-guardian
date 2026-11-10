@@ -90,6 +90,8 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
   const status = expired ? "expired" : payment.status;
   const remaining = status === "pending" ? timeLeft(payment.expires_at, now) : "";
   const external = isExternalMethod(payment.payment_method);
+  /** Finished without payment: the invoices are free to be paid again. */
+  const ended = status === "expired" || status === "cancelled" || status === "failed";
 
   return (
     <article className="detail-page payment-detail">
@@ -117,6 +119,13 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
           <div className="gateway-cancelled" role="status">
             <Ban aria-hidden="true" />
             <div><strong>Pembayaran dibatalkan</strong><p>Transaksi ini tidak dapat dipakai lagi. Tagihan di bawah ini kembali dapat dibayar online dengan metode lain atau lewat transfer manual.</p></div>
+          </div>
+        )}
+
+        {status === "failed" && (
+          <div className="payment-rejection-message" role="alert">
+            <p><strong>Pembayaran online tidak dapat dibuat.</strong></p>
+            <p>Penyedia pembayaran tidak mengirimkan instruksi pembayaran, jadi tidak ada dana yang ditagihkan. Tagihan kembali dapat dibayar. Coba lagi dengan metode lain atau unggah bukti transfer.</p>
           </div>
         )}
 
@@ -198,10 +207,10 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
             </div>
           ))}
         </div>
-        {(status === "expired" || status === "cancelled") && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Pilih tagihan lagi</Link></footer>}
+        {ended && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Pilih tagihan lagi</Link></footer>}
         {status === "paid" && <footer className="gateway-footer"><Link className="primary-button" href={listHref}>Lihat riwayat pembayaran</Link></footer>}
       </section>
-      <section className="privacy-card panel">{status === "expired" || status === "cancelled" ? <XCircle /> : <ShieldCheck />}<div><h2>Transaksi terlindungi</h2><p>Pembayaran diproses oleh mitra pembayaran resmi. Jangan membagikan nomor Virtual Account atau tautan pembayaran kepada pihak lain.</p></div></section>
+      <section className="privacy-card panel">{ended ? <XCircle /> : <ShieldCheck />}<div><h2>Transaksi terlindungi</h2><p>Pembayaran diproses oleh mitra pembayaran resmi. Jangan membagikan nomor Virtual Account atau tautan pembayaran kepada pihak lain.</p></div></section>
     </article>
   );
 }

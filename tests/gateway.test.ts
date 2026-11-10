@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkoutHref, gatewayReturnHref, groupChannels, isDummyGatewayMode, isExpired, isExternalMethod, parseInvoiceIds, returnReference, timeLeft, type GatewayChannel } from "@/lib/gateway";
-import { channelsForTotal, deadlineFor, dummyCancel, dummyCheckout, dummyMarkPaid, dummyPayment, dummyPendingByInvoice } from "@/lib/gatewayDummy";
+import { checkoutHref, durationLabel, gatewayReturnHref, groupChannels, isDummyGatewayMode, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/lib/gateway";
+import { channelsForTotal, deadlineFor, dummyCancel, dummyCheckout, dummyMarkPaid, dummyPayment, dummyPayments, dummyPendingByInvoice } from "@/lib/gatewayDummy";
 import { isPayableOnline } from "@/components/PaymentList";
 import type { Invoice } from "@/lib/data";
 
@@ -47,6 +47,24 @@ describe("gateway helpers", () => {
     expect(timeLeft("2026-11-08T13:30:00+07:00", now)).toBe("1 hari 3 jam");
     expect(timeLeft("2026-11-07T10:45:00+07:00", now)).toBe("45 menit");
     expect(timeLeft("2026-11-07T09:00:00+07:00", now)).toBe("");
+  });
+
+  it("has a label and a badge tone for every status the backend sends, including failed", () => {
+    const statuses: GatewayStatus[] = ["pending", "paid", "expired", "cancelled", "failed"];
+    for (const status of statuses) {
+      expect(STATUS_LABELS[status]).toBeTruthy();
+      expect(statusTone(status)).toMatch(/^(warning|success|late|partial)$/);
+    }
+    expect(STATUS_LABELS.failed).toBe("Gagal dibuat");
+  });
+
+  it("formats the payment window from gateway/channels in days, hours and minutes", () => {
+    expect(durationLabel(60)).toBe("1 jam");
+    expect(durationLabel(90)).toBe("1 jam 30 menit");
+    expect(durationLabel(45)).toBe("45 menit");
+    expect(durationLabel(1440 + 180)).toBe("1 hari 3 jam");
+    expect(durationLabel(0)).toBe("");
+    expect(durationLabel(Number.NaN)).toBe("");
   });
 
   it("only offers online payment for open bills that are not locked or in manual verification", () => {
@@ -96,6 +114,15 @@ describe("dummy gateway simulation", () => {
     dummyMarkPaid(payment.id);
     expect((await dummyPayment(payment.id))?.status).toBe("paid");
     expect(dummyPendingByInvoice()).toEqual({});
+  });
+
+  it("lists payments like GET gateway/payments/: invoice_count instead of items or instructions", async () => {
+    const items = [{ student_invoice_id: "31", amount: "60000.00" }, { student_invoice_id: "32", amount: "60000.00" }];
+    await dummyCheckout({ invoiceIds: ["31", "32"], channel: "VABCA", idempotencyKey: "cafebabe-0000", items });
+    const [row] = await dummyPayments();
+    expect(row.invoice_count).toBe(2);
+    expect(row).not.toHaveProperty("items");
+    expect(row).not.toHaveProperty("payment_code");
   });
 });
 

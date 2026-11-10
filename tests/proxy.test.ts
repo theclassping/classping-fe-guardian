@@ -119,5 +119,38 @@ describe("route protection proxy", () => {
       await proxy(request("/dashboard", { ...session, access_token: fresh }));
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it.each(["/api/proxy/gateway/checkout/", "/api/proxy/gateway/payments/5/", "/api/notifications", "/api/receipts/22"])(
+      "renews an expired token before the browser API call %s is forwarded",
+      async (path) => {
+        vi.stubGlobal("fetch", vi.fn(async () => Response.json({ access: fresh })));
+        const incoming = request(path, { ...session, access_token: expired });
+        const response = await proxy(incoming);
+
+        expect(response.status).toBe(200);
+        expect(incoming.cookies.get("access_token")?.value).toBe(fresh);
+        expect(response.cookies.get("access_token")?.value).toBe(fresh);
+      },
+    );
+
+    it("answers an API call with 401 JSON (not a login redirect) and clears the session when the refresh token is rejected", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => Response.json({ detail: "Token is invalid" }, { status: 401 })));
+      const response = await proxy(request("/api/proxy/gateway/checkout/", { ...session, access_token: expired }));
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get("location")).toBeNull();
+      expect(await response.json()).toEqual({ detail: "Sesi Anda telah berakhir. Silakan masuk kembali." });
+      expect(response.cookies.get("refresh_token")?.value).toBe("");
+    });
+
+    it("leaves API calls without a session to the route's own checks", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const response = await proxy(request("/api/proxy/gateway/payments/"));
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 });
