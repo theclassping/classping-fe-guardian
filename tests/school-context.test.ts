@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getChild } from "@/lib/data";
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -7,24 +8,43 @@ vi.mock("next/headers", () => ({
 }));
 
 const apiOrigin = "https://backend.example.test";
+const contextUrl = (studentId: number) => `${apiOrigin}/api/parent/context/?student_id=${studentId}`;
 let payloads: Record<string, unknown>;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function jsonResponse(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } });
 }
 
-async function loadSchoolResolver() {
+async function loadBackend() {
   vi.resetModules();
   vi.stubEnv("DJANGO_API_URL", apiOrigin);
-  const { schoolForBackend } = await import("@/lib/backend");
-  return schoolForBackend;
+  return import("@/lib/backend");
 }
 
-describe("guardian school context", () => {
+const currentClass = { id: 200, name: "Class B", branch: 9, branch_name: "North Campus", academic_year: 3 };
+const context = {
+  students: [{ id: 42, first_name: "Gita", last_name: "Gateway" }],
+  student: {
+    id: 42,
+    first_name: "Gita",
+    last_name: "Gateway",
+    nickname: "Gigi",
+    student_guardians: [
+      { guardian_name: "Second Guardian", is_primary: false },
+      { guardian_name: "Primary Guardian", is_primary: true },
+    ],
+    class_students: [
+      { class_id: 100, is_current: false, class: { id: 100, name: "Class A", branch: 5, academic_year_name: "2025/2026" } },
+      { class_id: 200, is_current: true, class: { ...currentClass, academic_year_name: "2026/2027" } },
+    ],
+  },
+  current_class: currentClass,
+  branch: { id: 9, school: 4, name: "North Campus", address: "North road", phone: "08123456789", email: "north@example.test", is_payment_gateway_enabled: true },
+  school: { id: 4, name: "Correct School", register_number: "SCH-4" },
+};
+
+describe("guardian context from GET /api/parent/context/", () => {
   beforeEach(() => {
     payloads = {};
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -34,109 +54,69 @@ describe("guardian school context", () => {
     vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("uses the student's current class rather than an older class assignment", async () => {
-    payloads[`${apiOrigin}/api/students/42/`] = {
-      id: 42,
-      location_id: 11,
-      class_students: [
-        {
-          class_id: 100,
-          is_current: false,
-          class: { id: 100, name: "Class A", branch: 5, branch_name: "Old Campus", academic_year_name: "2025/2026" },
-        },
-        {
-          class_id: 200,
-          is_current: true,
-          class: { id: 200, name: "Class B", branch: 9, branch_name: "North Campus", academic_year_name: "2026/2027" },
-        },
-      ],
-    };
-    payloads[`${apiOrigin}/api/branches/9/`] = {
-      id: 9,
-      school: 4,
-      name: "North Campus",
-      location_id: 11,
-      address: "North road",
-      phone: "08123456789",
-      email: "north@example.test",
-    };
-    payloads[`${apiOrigin}/api/schools/4/`] = { id: 4, name: "Correct School", register_number: "SCH-4" };
+  it("uses the branch and school the backend resolved, with the current class's academic year", async () => {
+    payloads[contextUrl(42)] = context;
+    const { schoolForBackend } = await loadBackend();
 
-    const schoolForBackend = await loadSchoolResolver();
-    const school = await schoolForBackend(42);
-
-    expect(school).toMatchObject({
+    expect(await schoolForBackend(42)).toMatchObject({
       name: "Correct School",
+      register_number: "SCH-4",
       branch_name: "North Campus",
-      academic_year: "2026/2027",
+      branch_id: 9,
       address: "North road",
+      phone_number: "08123456789",
       email: "north@example.test",
+      academic_year: "2026/2027",
+      payment_gateway_enabled: true,
     });
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(`${apiOrigin}/api/branches/5/`);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([contextUrl(42)]);
   });
 
-  it("does not mistake a historical class for the student's current branch", async () => {
-    payloads[`${apiOrigin}/api/students/10/`] = {
-      id: 10,
-      location_id: 77,
-      class_students: [
-        { class_id: 100, is_current: false, class: { id: 100, name: "Class A", branch: 5, branch_name: "Old Campus" } },
-      ],
-    };
-    payloads[`${apiOrigin}/api/branches/`] = [
-      { id: 5, school: 1, name: "Old Campus", location_id: 50 },
-      { id: 9, school: 4, name: "North Campus", location_id: 77, email: "north@example.test" },
-    ];
-    payloads[`${apiOrigin}/api/schools/4/`] = { id: 4, name: "Correct School" };
+  it("reads the academic year record when the class does not embed its name, and only for this branch", async () => {
+    payloads[contextUrl(42)] = { ...context, student: { ...context.student, class_students: [] } };
+    payloads[`${apiOrigin}/api/academic-years/3/`] = { id: 3, branch: 9, name: "2026/2027" };
+    const { schoolForBackend } = await loadBackend();
+    expect((await schoolForBackend(42))?.academic_year).toBe("2026/2027");
 
-    const schoolForBackend = await loadSchoolResolver();
-    const school = await schoolForBackend(10);
-
-    expect(school).toMatchObject({ name: "Correct School", branch_name: "North Campus" });
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(`${apiOrigin}/api/schools/1/`);
+    payloads[`${apiOrigin}/api/academic-years/3/`] = { id: 3, branch: 5, name: "Other branch year" };
+    const reloaded = await loadBackend();
+    expect((await reloaded.schoolForBackend(42))?.academic_year).toBeUndefined();
   });
 
-  it("follows backend pagination before resolving a student's location to a branch", async () => {
-    const branchPageTwo = `${apiOrigin}/api/branches/?page=2`;
-    payloads[`${apiOrigin}/api/students/7/`] = { id: 7, location_id: 77, class_students: [] };
-    payloads[`${apiOrigin}/api/class-students/?student_id=7`] = [];
-    payloads[`${apiOrigin}/api/branches/`] = {
-      count: 21,
-      next: branchPageTwo,
-      results: Array.from({ length: 20 }, (_, index) => ({ id: index + 1, school: 1, location_id: 100 + index })),
-    };
-    payloads[branchPageTwo] = {
-      count: 21,
-      next: null,
-      results: [{ id: 21, school: 4, name: "North Campus", location_id: 77, email: "north@example.test" }],
-    };
-    payloads[`${apiOrigin}/api/schools/4/`] = { id: 4, name: "Correct School" };
-    payloads[`${apiOrigin}/api/academic-years/?branch_id=21&is_current=true`] = {
-      count: 1,
-      next: null,
-      results: [{ id: 3, branch: 21, name: "2026/2027", is_current: true }],
-    };
-
-    const schoolForBackend = await loadSchoolResolver();
-    const school = await schoolForBackend(7);
-
-    expect(school).toMatchObject({ name: "Correct School", branch_name: "North Campus", academic_year: "2026/2027" });
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain(branchPageTwo);
+  it("has no school when the backend has no branch or school for the student, or cannot be read", async () => {
+    payloads[contextUrl(42)] = { ...context, branch: null, school: null };
+    const { schoolForBackend } = await loadBackend();
+    expect(await schoolForBackend(42)).toBeNull();
+    expect(await schoolForBackend(43)).toBeNull();
   });
 
-  it("does not guess when a location matches multiple branches and there is no current class", async () => {
-    payloads[`${apiOrigin}/api/students/8/`] = { id: 8, location_id: 55, class_students: [] };
-    payloads[`${apiOrigin}/api/class-students/?student_id=8`] = [];
-    payloads[`${apiOrigin}/api/branches/`] = [
-      { id: 1, school: 1, name: "Main Campus", location_id: 55 },
-      { id: 2, school: 2, name: "Other Campus", location_id: 55 },
-    ];
+  it("builds the child profile from the student and its current class", async () => {
+    payloads[contextUrl(42)] = context;
+    const { studentForBackend } = await loadBackend();
 
-    const schoolForBackend = await loadSchoolResolver();
-    const school = await schoolForBackend(8);
+    expect(await studentForBackend(42, getChild())).toMatchObject({
+      name: "Gita Gateway",
+      firstName: "Gita",
+      nickname: "Gigi",
+      initials: "GG",
+      className: "Kelas B · North Campus",
+      classId: 200,
+      branchId: 9,
+    });
+  });
 
-    expect(school).toBeNull();
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(`${apiOrigin}/api/schools/1/`);
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(`${apiOrigin}/api/schools/2/`);
+  it("falls back to neutral values when the context cannot be read", async () => {
+    const { studentForBackend } = await loadBackend();
+    expect(await studentForBackend(42, getChild())).toMatchObject({ name: "Siswa", className: "Kelas belum tersedia", classId: undefined });
+  });
+
+  it("answers the online-payment switch, the receipt guardian and the student list from the same context", async () => {
+    payloads[contextUrl(42)] = context;
+    const { linkedStudentsForGuardian, paymentGatewayForStudent, primaryGuardianNameForStudent } = await loadBackend();
+
+    expect(await paymentGatewayForStudent(42)).toEqual({ enabled: true, branchId: 9 });
+    expect(await paymentGatewayForStudent(undefined)).toEqual({ enabled: false });
+    expect(await primaryGuardianNameForStudent(42)).toBe("Primary Guardian");
+    expect(await linkedStudentsForGuardian(42)).toEqual([{ id: 42, name: "Gita Gateway", nickname: "Gita", initials: "GG" }]);
   });
 });

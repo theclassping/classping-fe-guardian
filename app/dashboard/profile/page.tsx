@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Mail, Phone, UserRound } from "lucide-react";
-import { guardianForBackend, sessionIdentity, sessionStudentId, studentsForGuardian } from "@/lib/backend";
+import { guardianForBackend, linkedStudentsForGuardian, sessionIdentity, sessionStudentId } from "@/lib/backend";
 import { initialsOf } from "@/lib/format";
 import LinkedStudentActivityLink from "@/components/LinkedStudentActivityLink";
 import { redirect } from "next/navigation";
@@ -9,11 +9,13 @@ export default async function GuardianProfilePage({ searchParams }: { searchPara
   const query = await searchParams;
   const identity = await sessionIdentity();
   if (!identity) redirect("/login");
-  const [students, guardian, currentStudentId] = await Promise.all([
-    identity.guardian_id ? studentsForGuardian(identity.guardian_id) : Promise.resolve(identity.students || []),
+  const currentStudentId = await sessionStudentId();
+  const [linkedStudents, guardian] = await Promise.all([
+    currentStudentId ? linkedStudentsForGuardian(currentStudentId) : Promise.resolve([]),
     guardianForBackend(identity.guardian_id, identity.id, identity.email),
-    sessionStudentId(),
   ]);
+  // The backend's list; the students saved at login when it cannot be read.
+  const students = linkedStudents.length ? linkedStudents : identity.students || [];
   const displayName = guardian?.name?.trim() || identity.name;
   const activeStudentId = query.student_id || currentStudentId || identity.student_id;
   const initials = initialsOf(displayName);

@@ -3,7 +3,7 @@ import { photosForStudent, studentCaption, type StudentPhoto } from "@/lib/activ
 import { decodeIdentity, linkedStudentIds } from "@/lib/auth";
 import { getChild } from "@/lib/data";
 import type { Activity, ChildId, ChildProfile, Invoice } from "@/lib/data";
-import { backendOrigin, backendUrl } from "@/lib/env";
+import { backendUrl } from "@/lib/env";
 import { asSentence, formatDateTime, formatLongDate, formatMonthYear, formatTime, fullName, initialsOf, rupiah, titleize } from "@/lib/format";
 import { guardianUserId } from "@/lib/guardians";
 import { primaryGuardianName } from "@/lib/receipt";
@@ -127,13 +127,6 @@ function formatClassLabel(name?: string, branchName?: string) {
   return label.startsWith("Kelas ") ? label : `Kelas ${label}`;
 }
 
-export function activeClassStudent(
-  embedded: ApiClassStudent[] = [],
-  fetched: ApiClassStudent[] = [],
-) {
-  return [...embedded, ...fetched].find((relation) => relation.is_current === true);
-}
-
 function nameFromTeacher(value?: ApiClassTeacher | string | number) {
   if (typeof value === "string") return value.trim() || undefined;
   if (!value || typeof value === "number") return undefined;
@@ -198,45 +191,32 @@ async function get<T>(path: string): Promise<T | null> {
   return (await getWithStatus<T>(path)).data;
 }
 
-/** Every item of a paginated list, following `next` links on the backend's own origin (at most 100 pages). */
-async function getAll<T>(path: string): Promise<T[]> {
-  const apiBase = backendOrigin();
-  if (!apiBase) return [];
+/** `GET /api/parent/context/?student_id=` — each part has the shape of its own endpoint (students/, students/{id}/, classes/{id}/, branches/{id}/, schools/{id}/). */
+type ApiParentContext = {
+  students?: ApiStudent[];
+  student?: ApiStudent | null;
+  current_class?: ApiClass | null;
+  branch?: ApiBranch | null;
+  school?: ApiSchool | null;
+};
 
-  const baseOrigin = new URL(apiBase).origin;
-  let nextUrl: string | null = new URL(path, `${apiBase}/`).toString();
-  const visited = new Set<string>();
-  const items: T[] = [];
+/**
+ * Everything the dashboard needs to know about the selected child, in one backend call: the guardian's
+ * students, the student, its current class, and that class's branch and school (the backend decides the
+ * branch). The layout and the page both ask for it; Next.js sends one request per page render.
+ */
+async function parentContextFor(studentId: number): Promise<ApiParentContext> {
+  return (await get<ApiParentContext>(`/api/parent/context/?student_id=${studentId}`)) || {};
+}
 
-  try {
-    while (nextUrl && !visited.has(nextUrl) && visited.size < 100) {
-      const pageUrl: URL = new URL(nextUrl);
-      if (pageUrl.origin !== baseOrigin || !pageUrl.pathname.startsWith("/api/")) break;
-      visited.add(nextUrl);
-
-      const response = await authorizedGet(pageUrl);
-      if (!response?.ok) break;
-
-      const payload = await response.json() as unknown;
-      if (Array.isArray(payload)) {
-        items.push(...payload as T[]);
-        break;
-      }
-      const page = payload as { results?: unknown; data?: unknown; next?: unknown } | null;
-      const pageItems = Array.isArray(page?.results) ? page.results : Array.isArray(page?.data) ? page.data : null;
-      if (!pageItems) break;
-      items.push(...pageItems as T[]);
-      nextUrl = typeof page?.next === "string" ? new URL(page.next, pageUrl).toString() : null;
-    }
-  } catch {
-    return items;
-  }
-
-  return items;
+/** The value as a positive integer id, or undefined. */
+function positiveId(value: unknown) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
 }
 
 export async function studentForBackend(studentId: number, fallback: ChildProfile) {
-  const identity = await sessionIdentity();
+  const [identity, context] = await Promise.all([sessionIdentity(), parentContextFor(studentId)]);
   const linkedStudent = identity?.students?.find((student) => student.id === studentId);
   const fallbackName = linkedStudent?.name || "Siswa";
   fallback = {
@@ -246,27 +226,13 @@ export async function studentForBackend(studentId: number, fallback: ChildProfil
     nickname: linkedStudent?.nickname || fallbackName.split(" ")[0],
     initials: linkedStudent?.initials || "S",
   };
-  const [item, classStudentPayload] = await Promise.all([
-    get<ApiStudent>(`/api/students/${studentId}/`),
-    get<ApiClassStudent[] | { results?: ApiClassStudent[] }>(`/api/class-students/?student_id=${studentId}&is_current=true`),
-  ]);
-  const classStudentRecords = records<ApiClassStudent>(classStudentPayload)
-    .filter((relation) => Number(relation.student_id ?? relation.student) === studentId);
-  const classAssignment = activeClassStudent(item?.class_students, classStudentRecords);
-  const classId = classAssignment?.class_id;
-  const classRecord = classId ? await get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`) : null;
-  const className = formatClassLabel(classRecord?.name || classAssignment?.class_name, classRecord?.branch_name)
-    || "Kelas belum tersedia";
-  const classFields = { className, classCode: className, classId: positiveId(classId), branchId: positiveId(classRecord?.branch) };
+  const currentClass = context.current_class;
+  const className = formatClassLabel(currentClass?.name, currentClass?.branch_name) || "Kelas belum tersedia";
+  const classFields = { className, classCode: className, classId: positiveId(currentClass?.id), branchId: positiveId(currentClass?.branch) };
+  const item = context.student;
   if (!item?.id) return { ...fallback, ...classFields };
   const name = fullName(item.first_name, item.middle_name, item.last_name) || fallback.name;
   return { ...fallback, name, firstName: item.first_name || fallback.firstName, nickname: item.nickname || item.first_name || fallback.firstName, initials: initialsOf(name), ...classFields, id: fallback.id };
-}
-
-/** The value as a positive integer id, or undefined. */
-function positiveId(value: unknown) {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : undefined;
 }
 
 /**
@@ -283,100 +249,50 @@ export async function selectedStudentForRequest() {
 
 /** Name of the guardian the school addresses for this student: the primary guardian, like the verification email, else the first linked one. */
 export async function primaryGuardianNameForStudent(studentId: number) {
-  const student = await get<ApiStudent>(`/api/students/${studentId}/`);
-  return primaryGuardianName(student?.student_guardians);
+  return primaryGuardianName((await parentContextFor(studentId)).student?.student_guardians);
 }
 
-export async function studentsForGuardian(guardianId: number) {
-  const records = await get<ApiStudent[]>(`/api/students/?guardian_id=${guardianId}`);
-  if (!Array.isArray(records)) return [];
-  return records.filter((student): student is ApiStudent & { id: number } => typeof student.id === "number").map((student) => {
-    const name = fullName(student.first_name, student.middle_name, student.last_name) || "Siswa";
-    return { id: student.id, name, nickname: student.nickname || student.first_name, initials: initialsOf(name) };
-  });
+/** The guardian's students for the profile page, in the backend's order. */
+export async function linkedStudentsForGuardian(studentId: number) {
+  return ((await parentContextFor(studentId)).students || [])
+    .filter((student): student is ApiStudent & { id: number } => typeof student.id === "number")
+    .map((student) => {
+      const name = fullName(student.first_name, student.middle_name, student.last_name) || "Siswa";
+      return { id: student.id, name, nickname: student.nickname || student.first_name, initials: initialsOf(name) };
+    });
 }
 
-export async function schoolForBackend(studentId: number) {
-  const student = await get<ApiStudent>(`/api/students/${studentId}/`);
-  if (!student?.id) return null;
+/** Academic year of the student's current class: from the embedded class, else from the academic year record. */
+async function academicYearFor(student: ApiStudent | null | undefined, currentClass: ApiClass | null | undefined, branchId: number | undefined) {
+  const embedded = student?.class_students?.find((link) => link.is_current === true && Number(link.class?.id ?? link.class_id) === Number(currentClass?.id))?.class;
+  if (embedded?.academic_year_name) return embedded.academic_year_name;
+  if (currentClass?.academic_year == null) return undefined;
+  const year = await get<ApiAcademicYear>(`/api/academic-years/${encodeURIComponent(String(currentClass.academic_year))}/`);
+  return year && Number(year.branch) === branchId ? year.name : undefined;
+}
 
-  let assignments = student.class_students || [];
-  if (!assignments.length) {
-    assignments = (await getAll<ApiClassStudent>(`/api/class-students/?student_id=${studentId}`))
-      .filter((item) => Number(item.student_id ?? item.student) === studentId);
-  }
-
-  const classForAssignment = async (assignment: ApiClassStudent) => {
-    if (assignment.class?.branch != null) return assignment.class;
-    const classId = assignment.class_id ?? assignment.class?.id;
-    return classId == null
-      ? null
-      : get<ApiClass>(`/api/classes/${encodeURIComponent(String(classId))}/`);
-  };
-  const currentAssignments = assignments.filter((item) => item.is_current === true);
-  const hasCurrentAssignments = currentAssignments.length > 0;
-  const resolvedClasses = (await Promise.all(currentAssignments.map(classForAssignment)))
-    .filter((item): item is ApiClass => Boolean(item?.branch));
-  const branchIds = [...new Set(resolvedClasses.map((item) => Number(item.branch)).filter((id) => Number.isInteger(id) && id > 0))];
-
-  let branch: ApiBranch | undefined;
-  let selectedClass: ApiClass | undefined;
-  if (hasCurrentAssignments && branchIds.length === 1) {
-    branch = await get<ApiBranch>(`/api/branches/${encodeURIComponent(String(branchIds[0]))}/`) || undefined;
-    selectedClass = resolvedClasses.find((item) => Number(item.branch) === branchIds[0]);
-  } else if (hasCurrentAssignments && branchIds.length > 1 && student.location_id != null) {
-    const allBranches = await getAll<ApiBranch>("/api/branches/");
-    const locationBranches = allBranches.filter((item) => Number(item.location_id) === Number(student.location_id));
-    const matchingBranchIds = branchIds.filter((id) => locationBranches.some((item) => Number(item.id) === id));
-    if (matchingBranchIds.length === 1) {
-      branch = locationBranches.find((item) => Number(item.id) === matchingBranchIds[0]);
-      selectedClass = resolvedClasses.find((item) => Number(item.branch) === matchingBranchIds[0]);
-    }
-  } else if (!hasCurrentAssignments && student.location_id != null) {
-    // Old class assignments may belong to a previous branch. When there is no
-    // explicitly current class, use the student's location only if it points
-    // to one branch; never treat the first historical class as current.
-    const allBranches = await getAll<ApiBranch>("/api/branches/");
-    const locationBranches = allBranches.filter((item) => Number(item.location_id) === Number(student.location_id));
-    if (locationBranches.length === 1) branch = locationBranches[0];
-  }
-
-  if (!branch?.id && hasCurrentAssignments && student.location_id != null && branchIds.length === 1) {
-    const allBranches = await getAll<ApiBranch>("/api/branches/");
-    branch = allBranches.find((item) => Number(item.id) === branchIds[0]);
-  }
-  if (!branch?.school) return null;
-
-  const school = await get<ApiSchool>(`/api/schools/${encodeURIComponent(String(branch.school))}/`);
-  if (!school) return null;
-
-  let academicYear = selectedClass?.academic_year_name;
-  if (!academicYear && selectedClass?.academic_year != null) {
-    const year = await get<ApiAcademicYear>(`/api/academic-years/${encodeURIComponent(String(selectedClass.academic_year))}/`);
-    if (year && Number(year.branch) === Number(branch.id)) academicYear = year.name;
-  }
-  if (!academicYear) {
-    const academicYears = await getAll<ApiAcademicYear>(`/api/academic-years/?branch_id=${encodeURIComponent(String(branch.id))}&is_current=true`);
-    academicYear = academicYears.find((year) => year.is_current && Number(year.branch) === Number(branch.id))?.name;
-  }
-
+/** School and branch details for the selected child, or `null` when the backend has no branch or school for it. */
+export async function schoolForBackend(studentId: number): Promise<GuardianSchool | null> {
+  const { student, current_class: currentClass, branch, school } = await parentContextFor(studentId);
+  if (!branch?.id || !school) return null;
+  const branchId = Number(branch.id) || undefined;
   return {
     ...school,
     address: branch.address,
     phone_number: branch.phone,
     email: branch.email,
     branch_name: branch.name,
-    branch_id: Number(branch.id) || undefined,
-    academic_year: academicYear,
+    branch_id: branchId,
+    academic_year: await academicYearFor(student, currentClass, branchId),
     payment_gateway_enabled: Boolean(branch.is_payment_gateway_enabled),
-  } satisfies GuardianSchool;
+  };
 }
 
 /** Whether the selected child's branch offers online payment through the gateway. */
 export async function paymentGatewayForStudent(studentId?: number): Promise<{ enabled: boolean; branchId?: number }> {
   if (!studentId) return { enabled: false };
-  const school = await schoolForBackend(studentId).catch(() => null);
-  return { enabled: Boolean(school?.payment_gateway_enabled), branchId: school?.branch_id };
+  const { branch } = await parentContextFor(studentId);
+  return { enabled: Boolean(branch?.is_payment_gateway_enabled), branchId: positiveId(branch?.id) };
 }
 
 export async function guardianForBackend(guardianId?: number, userId?: number, email?: string) {

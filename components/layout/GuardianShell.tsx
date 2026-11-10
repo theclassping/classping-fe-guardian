@@ -23,8 +23,7 @@ import LogoutButton from "@/components/LogoutButton";
 import type { GuardianIdentity } from "@/lib/auth";
 import type { GuardianNotification, GuardianSchool } from "@/lib/backend";
 import { getChild, type ChildProfile } from "@/lib/data";
-import { fullName, initialsOf } from "@/lib/format";
-import { proxyUrl } from "@/lib/routes";
+import { initialsOf } from "@/lib/format";
 import { useStoredIds } from "@/components/useStoredIds";
 
 type NavItem = { href: string; label: string; icon: typeof Settings; badge?: string; exact?: boolean };
@@ -41,14 +40,17 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   const schoolEmail = school?.email?.trim();
   const [selectedStudentId, setSelectedStudentId] = useState<number | undefined>(currentStudentId ?? identity.student_id ?? identity.students?.[0]?.id);
   const studentId = selectedStudentId ? String(selectedStudentId) : null;
-  const [dynamicChild, setDynamicChild] = useState<ChildProfile | null>(null);
   const linkedStudents = identity.students || [];
   const selectedStudent = linkedStudents.find((student) => student.id === selectedStudentId);
-  const fallbackChild = useMemo(() => currentChild || getChild(), [currentChild]);
-  const initialChild = useMemo(() => selectedStudent
-    ? { ...fallbackChild, name: selectedStudent.name, firstName: selectedStudent.name.split(" ")[0], nickname: selectedStudent.nickname, initials: selectedStudent.initials }
-    : fallbackChild, [fallbackChild, selectedStudent]);
-  const child = dynamicChild || initialChild;
+  // The layout loads the selected child from the backend. Right after switching children, until the
+  // refreshed layout arrives, show the newly selected child from the names saved at login.
+  const child = useMemo(() => {
+    if (currentChild && currentStudentId === selectedStudentId) return currentChild;
+    const base = currentChild || getChild();
+    return selectedStudent
+      ? { ...base, name: selectedStudent.name, firstName: selectedStudent.name.split(" ")[0], nickname: selectedStudent.nickname, initials: selectedStudent.initials }
+      : base;
+  }, [currentChild, currentStudentId, selectedStudentId, selectedStudent]);
   const contactStudents = linkedStudents.length
     ? linkedStudents.map((student) => ({ value: String(student.id), name: student.id === selectedStudentId ? child.name : student.name }))
     : studentId ? [{ value: studentId, name: child.name }] : [{ value: child.id, name: child.name }];
@@ -89,18 +91,6 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
     return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
   }
 
-  useEffect(() => {
-    if (!studentId) return;
-    let active = true;
-    fetch(proxyUrl(`students/${studentId}`)).then((response) => response.ok ? response.json() : null).then((student) => {
-      if (!active || !student?.id) return;
-      const name = fullName(student.first_name, student.middle_name, student.last_name) || initialChild.name;
-      const currentClass = student.class_students?.find((entry: { is_current?: boolean }) => entry.is_current) || student.class_students?.[0];
-      setDynamicChild({ ...initialChild, name, firstName: student.first_name || initialChild.firstName, nickname: student.nickname || student.first_name || initialChild.firstName, initials: initialsOf(name), className: currentClass?.class_name || initialChild.className, classCode: currentClass?.class_name || initialChild.classCode });
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, [studentId, initialChild]);
-
   async function selectStudent(nextStudentId: number) {
     setSelectingStudentId(nextStudentId);
     try {
@@ -111,7 +101,6 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
       });
       if (!response.ok) return;
       setSelectedStudentId(nextStudentId);
-      setDynamicChild(null);
       setProfileOpen(false);
       router.refresh();
     } finally {
