@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayReturnHref, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
+import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
 import { isPayableOnline } from "@/features/payments/helpers";
 import type { Invoice } from "@/features/payments/types";
 
@@ -25,6 +25,13 @@ describe("gateway helpers", () => {
     expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "credit_card", "e_commerce"]);
     expect(isExternalMethod("e_commerce")).toBe(true);
     expect(isExternalMethod("virtual_account")).toBe(false);
+  });
+
+  it("builds the hand-over URL and only treats absolute links as provider billing pages", () => {
+    expect(gatewayRedirectHref(501, "?student_id=6")).toBe("/dashboard/payments/online/501/redirect?student_id=6");
+    expect(isExternalLink("https://billing-client.sandbox.rintisan.co.id/penagihan/abc")).toBe(true);
+    expect(isExternalLink("/dashboard/payments/online/501")).toBe(false);
+    expect(isExternalLink(null)).toBe(false);
   });
 
   it("builds the return URL and reads whichever reference the provider sends back", () => {

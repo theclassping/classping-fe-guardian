@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile } from "@/features/family/types";
 import type { Invoice } from "@/features/payments/types";
-import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, groupChannels, newIdempotencyKey, type GatewayChannelsResponse, type GatewayError } from "@/features/payments/gateway";
+import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, gatewayRedirectHref, groupChannels, isExternalLink, isExternalMethod, newIdempotencyKey, type GatewayChannelsResponse, type GatewayError } from "@/features/payments/gateway";
 import { rupiah } from "@/lib/format";
 import { isPayableOnline, remainingAmount, totalRemaining } from "@/features/payments/helpers";
 
@@ -47,7 +47,8 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
         channel: selectedChannel.code,
         idempotencyKey,
       });
-      router.push(gatewayPaymentHref(payment.id, childQuery));
+      // Card and e-commerce checkouts are paid on the provider's billing page: hand over right away.
+      router.push(isExternalMethod(payment.payment_method) && isExternalLink(payment.payment_link) ? gatewayRedirectHref(payment.id, childQuery) : gatewayPaymentHref(payment.id, childQuery));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Pembayaran online tidak dapat dibuat.");
       setSubmitting(false);

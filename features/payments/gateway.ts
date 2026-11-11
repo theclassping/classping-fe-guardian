@@ -171,6 +171,16 @@ export function gatewayPaymentHref(id: number | string, childQuery = "") {
   return `/dashboard/payments/online/${encodeURIComponent(String(id))}${childQuery}`;
 }
 
+/** Interstitial that hands the parent over to the provider's billing page (card form, Tokopedia, Blibli). */
+export function gatewayRedirectHref(id: number | string, childQuery = "") {
+  return `/dashboard/payments/online/${encodeURIComponent(String(id))}/redirect${childQuery}`;
+}
+
+/** Billing pages live on another origin; anything else is not a hand-over target. */
+export function isExternalLink(link?: string | null) {
+  return /^https?:\/\//i.test(link || "");
+}
+
 /** Landing page the provider (or an e-commerce app) sends the parent back to after paying. */
 export function gatewayReturnHref(payment: Pick<GatewayPayment, "id" | "payment_no">, origin = "") {
   return `${origin}/dashboard/payments/online/return?payment_id=${encodeURIComponent(String(payment.id))}&payment_no=${encodeURIComponent(payment.payment_no)}`;
