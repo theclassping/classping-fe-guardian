@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
+import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
 import { isPayableOnline } from "@/features/payments/helpers";
 import type { Invoice } from "@/features/payments/types";
 
@@ -32,6 +32,14 @@ describe("gateway helpers", () => {
     expect(isExternalLink("https://billing-client.sandbox.rintisan.co.id/penagihan/abc")).toBe(true);
     expect(isExternalLink("/dashboard/payments/online/501")).toBe(false);
     expect(isExternalLink(null)).toBe(false);
+  });
+
+  it("hands a card checkout over to Rintisan's billing page even when payment_link is empty", () => {
+    const billing = "https://billing-client.sandbox.rintisan.co.id/penagihan/261111abc";
+    expect(handoverLink({ payment_link: "", billing_url: billing })).toBe(billing);
+    expect(handoverLink({ payment_link: "https://tokopedia.link/pay/1", billing_url: billing })).toBe(billing);
+    expect(handoverLink({ payment_link: "https://tokopedia.link/pay/1", billing_url: null })).toBe("https://tokopedia.link/pay/1");
+    expect(handoverLink({ payment_link: null })).toBe("");
   });
 
   it("builds the return URL and reads whichever reference the provider sends back", () => {

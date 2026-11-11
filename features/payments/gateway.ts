@@ -67,7 +67,10 @@ export type GatewayPayment = Omit<GatewayPaymentSummary, "invoice_count"> & {
   branch_id?: number;
   platform_fee?: string;
   payment_code: string | null;
+  /** Provider's own link for e-commerce apps (Tokopedia, Blibli). */
   payment_link: string | null;
+  /** Rintisan's hosted billing page (`/penagihan/…`), the page card payments are made on. */
+  billing_url?: string | null;
   items: GatewayPaymentItem[];
 };
 
@@ -174,6 +177,16 @@ export function gatewayPaymentHref(id: number | string, childQuery = "") {
 /** Interstitial that hands the parent over to the provider's billing page (card form, Tokopedia, Blibli). */
 export function gatewayRedirectHref(id: number | string, childQuery = "") {
   return `/dashboard/payments/online/${encodeURIComponent(String(id))}/redirect${childQuery}`;
+}
+
+/**
+ * Page the parent pays on for card and e-commerce checkouts. Rintisan returns
+ * its hosted billing page as `rintisan_billing_link` (stored as `billing_url`)
+ * and, for e-commerce apps, a separate `payment_link`; card payments only get
+ * the billing page.
+ */
+export function handoverLink(payment: Pick<GatewayPayment, "payment_link" | "billing_url">) {
+  return [payment.billing_url, payment.payment_link].find(isExternalLink) || "";
 }
 
 /** Billing pages live on another origin; anything else is not a hand-over target. */

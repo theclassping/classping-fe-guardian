@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, ExternalLink, Home, RefreshCw, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayment, findGatewayPaymentByNo, gatewayPaymentHref, isExpired, type GatewayPayment } from "@/features/payments/gateway";
+import { fetchGatewayPayment, findGatewayPaymentByNo, gatewayPaymentHref, handoverLink, isExpired, type GatewayPayment } from "@/features/payments/gateway";
 import { formatDateTime, rupiah } from "@/lib/format";
 
 const POLL_MS = 5_000;
@@ -96,7 +96,7 @@ export default function GatewayReturn({ reference, listHref, childQuery }: { ref
             <span className="gateway-done-icon is-waiting" aria-hidden="true"><Clock3 /></span>
             <p>Kami menunggu konfirmasi <strong>{rupiah(payment.amount)}</strong> dari {payment.channel_name || "penyedia pembayaran"}. Jika Anda sudah menyelesaikan pembayaran, status berubah menjadi lunas dalam beberapa saat. Jika belum, instruksi pembayaran berlaku sampai {formatDateTime(payment.expires_at)}.</p>
             <p className="payment-verification-live"><RefreshCw aria-hidden="true" /> Status diperiksa otomatis setiap 5 detik.<button type="button" disabled={checking} onClick={() => void load()}>{checking ? "Memeriksa…" : "Periksa sekarang"}</button></p>
-            {payment.payment_link && <a className="gateway-done-reopen" href={payment.payment_link}>Belum membayar? Buka lagi halaman pembayaran <ExternalLink aria-hidden="true" /></a>}
+            {handoverLink(payment) && <a className="gateway-done-reopen" href={handoverLink(payment)}>Belum membayar? Buka lagi halaman pembayaran <ExternalLink aria-hidden="true" /></a>}
           </div>
         )}
 

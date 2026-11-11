@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, isExpired, isExternalLink, isExternalMethod, type GatewayPayment } from "@/features/payments/gateway";
+import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, type GatewayPayment } from "@/features/payments/gateway";
 import { rupiah } from "@/lib/format";
 
 const COUNTDOWN_SECONDS = 4;
@@ -21,7 +21,7 @@ function markHandover(id: string) {
 /**
  * Hand-over page between the checkout and the provider's billing page
  * (Rintisan card form, Tokopedia, Blibli). It shows what is about to be paid,
- * counts down, then sends the browser to `payment_link`. Coming back with the
+ * counts down, then sends the browser to the billing page. Coming back with the
  * browser's Back button lands here again, so the second visit does not
  * redirect: it offers "I have paid" (→ return page) and "open again" instead.
  */
@@ -43,8 +43,8 @@ export default function GatewayRedirect({ paymentId, listHref, childQuery }: { p
     return () => { cancelled = true; window.removeEventListener("pageshow", onShow); };
   }, [paymentId]);
 
-  const link = payment?.payment_link || "";
-  const redirectable = Boolean(payment && payment.status === "pending" && !isExpired(payment) && isExternalMethod(payment.payment_method) && isExternalLink(link));
+  const link = payment ? handoverLink(payment) : "";
+  const redirectable = Boolean(payment && payment.status === "pending" && !isExpired(payment) && isExternalMethod(payment.payment_method) && link);
 
   useEffect(() => {
     if (payment === undefined) return;

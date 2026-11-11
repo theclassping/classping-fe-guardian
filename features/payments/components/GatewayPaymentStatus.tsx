@@ -5,7 +5,7 @@ import { ArrowLeft, Ban, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, Sh
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, isExpired, isExternalLink, isExternalMethod, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
+import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
 import { formatDateTime, rupiah } from "@/lib/format";
 
 const POLL_MS = 10_000;
@@ -160,11 +160,11 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
               </div>
             )}
 
-            {external && payment.payment_link && (
+            {external && handoverLink(payment) && (
               <div className="gateway-instruction">
                 <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit" : `Pembayaran lewat ${payment.channel_name || "aplikasi e-commerce"}`}</span>
                 <div className="gateway-external-actions">
-                  {isExternalLink(payment.payment_link) ? <Link className="primary-button" href={gatewayRedirectHref(payment.id, childQuery)}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></Link> : <a className="primary-button" href={payment.payment_link}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></a>}
+                  <Link className="primary-button" href={gatewayRedirectHref(payment.id, childQuery)}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></Link>
                   <Link className="outline-button" href={gatewayReturnHref(payment)}>Saya sudah membayar</Link>
                 </div>
                 <ol>
