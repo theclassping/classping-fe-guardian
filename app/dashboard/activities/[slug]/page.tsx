@@ -1,22 +1,15 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, LockKeyhole, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
-import { activities, getChild } from "@/lib/data";
-import { activityForBackend, sessionStudentId, studentForBackend } from "@/lib/backend";
-import ActivityMediaSlider from "@/components/ActivityMediaSlider";
-
-export function generateStaticParams() {
-  return activities.map(({ slug }) => ({ slug }));
-}
+import { activityForBackend } from "@/features/activities/api";
+import { selectedStudentForRequest } from "@/features/family/api";
+import ActivityMediaSlider from "@/features/activities/components/ActivityMediaSlider";
 
 export default async function ActivityDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const fallback = activities.find((item) => item.slug === slug) || activities[0];
-  const studentId = await sessionStudentId();
-  const activity = await activityForBackend(slug, fallback.childId, fallback, studentId);
+  const { child, numericStudentId } = await selectedStudentForRequest();
+  const activity = await activityForBackend(slug, numericStudentId);
   if (!activity) notFound();
-  const childFallback = getChild();
-  const child = studentId ? await studentForBackend(studentId, childFallback) : childFallback;
 
   return (
     <article className="detail-page">

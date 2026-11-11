@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { startVerificationPolling, VERIFICATION_POLL_INTERVAL_MS } from "@/lib/verificationPolling";
+import { startVerificationPolling, VERIFICATION_POLL_INTERVAL_MS } from "@/features/payments/verification-polling";
 
 function fakeDocument(hidden = false) {
   const listeners = new Set<() => void>();

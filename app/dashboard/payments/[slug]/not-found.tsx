@@ -1,4 +1,4 @@
-import PaymentLookupNotice from "@/components/PaymentLookupNotice";
+import PaymentLookupNotice from "@/features/payments/components/PaymentLookupNotice";
 
 /** Rendered when a bill link no longer resolves, e.g. a parent reopens an old link after the bill was updated or verified. */
 export default function PaymentNotFound() {

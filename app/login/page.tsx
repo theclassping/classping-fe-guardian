@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import LoginForm from "@/components/login/LoginForm";
-import LoginShowcase from "@/components/login/LoginShowcase";
+import LoginForm from "@/features/auth/components/LoginForm";
+import LoginShowcase from "@/features/auth/components/LoginShowcase";
 
 export const metadata: Metadata = { title: "Masuk" };
 

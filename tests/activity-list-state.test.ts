@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_PAGE_SIZE, applyActivityListState, dateFilterOf, parseActivityListState } from "@/lib/activityListState";
+import { ACTIVITY_PAGE_SIZE, applyActivityListState, dateFilterOf, parseActivityListState } from "@/features/activities/list-state";
 
 const today = "2026-10-29";
 

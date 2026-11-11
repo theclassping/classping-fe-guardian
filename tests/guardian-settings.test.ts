@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { authorizeGuardianMutation } from "@/lib/guardian-access";
-import { backendErrorMessage, isCurrentGuardian, linkedGuardianProfiles, newGuardianLink } from "@/lib/guardians";
+import { authorizeGuardianMutation } from "@/features/family/guardian-access";
+import { backendErrorMessage, isCurrentGuardian, linkedGuardianProfiles, newGuardianLink } from "@/features/family/guardians";
 
 const actorId = 10;
 const token = `header.${Buffer.from(JSON.stringify({ user_id: actorId })).toString("base64url")}.signature`;

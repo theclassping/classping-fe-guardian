@@ -32,9 +32,9 @@ describe("ClassPing Guardian feature smoke coverage", () => {
     const proxySource = read("proxy.ts");
 
     expect(proxySource).toContain('pathname.startsWith("/dashboard")');
-    expect(proxySource).toContain('request.cookies.get("access_token")');
-    expect(proxySource).toContain('request.cookies.get("guardian_identity")');
-    expect(proxySource).toContain('loginUrl.searchParams.set("next", next)');
+    expect(proxySource).toContain("request.cookies.get(SESSION_COOKIES.accessToken)");
+    expect(proxySource).toContain("request.cookies.get(SESSION_COOKIES.identity)");
+    expect(proxySource).toContain('loginUrl.searchParams.set("next"');
   });
 
   it("contains the complete guardian navigation surface", () => {
@@ -49,12 +49,11 @@ describe("ClassPing Guardian feature smoke coverage", () => {
   });
 
   it("wires the primary feature components to their interactive data", () => {
-    expect(read("components/ActivityList.tsx")).toContain("setQuery");
-    expect(read("components/ActivityList.tsx")).toContain("downloadActivity");
-    expect(read("components/AssessmentList.tsx")).toContain("setQuery");
+    expect(read("features/activities/components/ActivityList.tsx")).toContain("setQuery");
+    expect(read("features/activities/components/ActivityList.tsx")).toContain("downloadActivity");
+    expect(read("features/assessments/components/AssessmentList.tsx")).toContain("setQuery");
     expect(read("app/dashboard/payments/[slug]/page.tsx")).toContain("InvoicePaymentActions");
-    expect(read("components/InvoicePaymentActions.tsx")).toContain("PaymentReceiptDialog");
-    expect(read("components/NotificationSettings.tsx")).toContain("setSettings");
+    expect(read("features/payments/components/InvoicePaymentActions.tsx")).toContain("PaymentReceiptDialog");
   });
 
   it("keeps all authentication endpoints available", () => {

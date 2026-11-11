@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Invoice } from "@/lib/data";
-import { paymentReceiptFor, primaryGuardianName, receiptFileName } from "@/lib/receipt";
-import { buildReceiptPdf, pdfSafeText } from "@/lib/receiptPdf";
+import type { Invoice } from "@/features/payments/types";
+import { primaryGuardianName } from "@/features/family/guardians";
+import { paymentReceiptFor, receiptFileName } from "@/features/payments/receipt";
+import { buildReceiptPdf, pdfSafeText } from "@/features/payments/receipt-pdf";
 
 const child = { name: "Joshua M Tesla", className: "Kelas Demo · Demo School 1" };
 const paidInvoice: Invoice = {
-  childId: "alya",
   slug: "23",
   month: "Oktober 2026",
   feeType: "Outing Class",

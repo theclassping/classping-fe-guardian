@@ -26,33 +26,33 @@ afterEach(() => {
 describe("guardian bill lookup states", () => {
   it("returns the mapped bill when the backend has it", async () => {
     stubFetch(200, invoiceRecord);
-    const { invoiceLookupForBackend } = await import("@/lib/backend");
-    const lookup = await invoiceLookupForBackend("23", "alya");
+    const { invoiceLookupForBackend } = await import("@/features/payments/api");
+    const lookup = await invoiceLookupForBackend("23");
     expect(lookup.state).toBe("found");
     if (lookup.state === "found") expect(lookup.invoice.slug).toBe("23");
   });
 
   it.each([404, 403])("reports a missing bill on HTTP %d so the friendly not-found page renders", async (status) => {
     stubFetch(status);
-    const { invoiceLookupForBackend } = await import("@/lib/backend");
-    expect(await invoiceLookupForBackend("23", "alya")).toEqual({ state: "missing" });
+    const { invoiceLookupForBackend } = await import("@/features/payments/api");
+    expect(await invoiceLookupForBackend("23")).toEqual({ state: "missing" });
   });
 
   it.each([401, 500, 503])("reports an unavailable backend on HTTP %d instead of a 404", async (status) => {
     stubFetch(status);
-    const { invoiceLookupForBackend } = await import("@/lib/backend");
-    expect(await invoiceLookupForBackend("23", "alya")).toEqual({ state: "unavailable" });
+    const { invoiceLookupForBackend } = await import("@/features/payments/api");
+    expect(await invoiceLookupForBackend("23")).toEqual({ state: "unavailable" });
   });
 
   it("reports unavailable when the request throws", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network down"); }));
-    const { invoiceLookupForBackend } = await import("@/lib/backend");
-    expect(await invoiceLookupForBackend("23", "alya")).toEqual({ state: "unavailable" });
+    const { invoiceLookupForBackend } = await import("@/features/payments/api");
+    expect(await invoiceLookupForBackend("23")).toEqual({ state: "unavailable" });
   });
 
   it("keeps the legacy invoiceForBackend helper returning undefined for a missing bill", async () => {
     stubFetch(404);
-    const { invoiceForBackend } = await import("@/lib/backend");
-    expect(await invoiceForBackend("23", "alya")).toBeUndefined();
+    const { invoiceForBackend } = await import("@/features/payments/api");
+    expect(await invoiceForBackend("23")).toBeUndefined();
   });
 });

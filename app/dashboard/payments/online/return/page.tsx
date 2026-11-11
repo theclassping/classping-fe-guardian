@@ -1,6 +1,6 @@
-import { selectedStudentForRequest } from "@/lib/backend";
-import { returnReference } from "@/lib/gateway";
-import GatewayReturn from "@/components/GatewayReturn";
+import { selectedStudentForRequest } from "@/features/family/api";
+import { returnReference } from "@/features/payments/gateway";
+import GatewayReturn from "@/features/payments/components/GatewayReturn";
 
 /**
  * Landing page for the provider's return URL after the parent pays on an
@@ -10,8 +10,7 @@ import GatewayReturn from "@/components/GatewayReturn";
  */
 export default async function GatewayReturnPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
-  const { child, studentId } = await selectedStudentForRequest();
-  const childQuery = studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${child.id}`;
+  const { childQuery } = await selectedStudentForRequest();
   const listHref = `/dashboard/payments${childQuery}`;
   const reference = returnReference(params);
   return <GatewayReturn reference={reference} listHref={listHref} childQuery={childQuery} />;

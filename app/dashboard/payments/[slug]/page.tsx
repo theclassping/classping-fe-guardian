@@ -1,29 +1,23 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
-import { invoices } from "@/lib/data";
-import { invoiceLookupForBackend, paymentGatewayForStudent, selectedStudentForRequest } from "@/lib/backend";
-import InvoicePaymentActions from "@/components/InvoicePaymentActions";
-import PaymentLookupNotice from "@/components/PaymentLookupNotice";
-import PaymentReceiptCard from "@/components/PaymentReceiptCard";
-import PaymentVerificationStatus from "@/components/PaymentVerificationStatus";
-import { invoicePaymentState } from "@/lib/payments";
-import { paymentReceiptFor } from "@/lib/receipt";
-
-export function generateStaticParams() {
-  return invoices.map(({ slug }) => ({ slug }));
-}
+import { invoiceLookupForBackend } from "@/features/payments/api";
+import { paymentGatewayForStudent, selectedStudentForRequest } from "@/features/family/api";
+import InvoicePaymentActions from "@/features/payments/components/InvoicePaymentActions";
+import PaymentLookupNotice from "@/features/payments/components/PaymentLookupNotice";
+import PaymentReceiptCard from "@/features/payments/components/PaymentReceiptCard";
+import PaymentVerificationStatus from "@/features/payments/components/PaymentVerificationStatus";
+import { invoicePaymentState } from "@/features/payments/helpers";
+import { paymentReceiptFor } from "@/features/payments/receipt";
 
 export default async function PaymentDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { child, studentId } = await selectedStudentForRequest();
-  const fallbackInvoice = invoices.find((item) => item.slug === slug);
-  const listHref = studentId ? `/dashboard/payments?student_id=${encodeURIComponent(studentId)}` : `/dashboard/payments?child=${child.id}`;
+  const { child, studentId, numericStudentId, childQuery } = await selectedStudentForRequest();
+  const listHref = `/dashboard/payments${childQuery}`;
   const [lookup, gateway] = await Promise.all([
-    invoiceLookupForBackend(slug, child.id, fallbackInvoice),
-    paymentGatewayForStudent(studentId ? Number(studentId) : undefined),
+    invoiceLookupForBackend(slug),
+    paymentGatewayForStudent(numericStudentId),
   ]);
-  const childQuery = studentId ? `?student_id=${encodeURIComponent(studentId)}` : `?child=${child.id}`;
   if (lookup.state === "missing") notFound();
   if (lookup.state === "unavailable") {
     return (

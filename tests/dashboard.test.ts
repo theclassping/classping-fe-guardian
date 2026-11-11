@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Activity, Invoice } from "@/lib/data";
-import { greetingFor, latestActivity, latestOpenInvoice } from "@/lib/dashboard";
+import type { Activity } from "@/features/activities/types";
+import type { Invoice } from "@/features/payments/types";
+import { greetingFor, latestActivity, latestOpenInvoice } from "@/features/dashboard/selectors";
 
 const baseInvoice: Invoice = {
-  childId: "alya", slug: "1", month: "Oktober 2026", feeType: "SPP", amount: "Rp 500.000", billAmount: 500000, paidAmount: 0,
+  slug: "1", month: "Oktober 2026", feeType: "SPP", amount: "Rp 500.000", billAmount: 500000, paidAmount: 0,
   dueDate: "30 Oktober 2026", status: "Unpaid", statusTone: "warning", method: "", paidAt: "—", fine: "Tidak ada",
 };
 const invoice = (overrides: Partial<Invoice>): Invoice => ({ ...baseInvoice, ...overrides });
@@ -47,7 +48,7 @@ describe("latest open bill", () => {
 
 describe("latest activity", () => {
   const activity = (slug: string, occurredAt?: string): Activity => ({
-    childId: "alya", slug, title: slug, date: "", time: "", emoji: "🎨", secondaryEmoji: "📷", tone: "mint", photos: 0,
+    slug, title: slug, date: "", time: "", emoji: "🎨", secondaryEmoji: "📷", tone: "mint", photos: 0,
     summary: "", description: "", teacher: "Bu Guru", teacherNote: "", skills: [], occurredAt,
   });
 

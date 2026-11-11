@@ -864,7 +864,6 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .gateway-qris ol { text-align: left; }
 .gateway-instruction .primary-button svg { width: 16px; }
 .gateway-instruction .fine-note { margin: 12px 0 0; }
-.gateway-simulate { margin-top: 12px; border-style: dashed; color: #8A5300; }
 .gateway-cancelled, .gateway-returned { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 16px; border-radius: 12px; }
 .gateway-cancelled { color: #2F5E78; background: #EEF4F7; }
 .gateway-returned { color: var(--green); background: #E3F1EE; }
@@ -882,8 +881,6 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .danger-button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: #A33A2A; color: #fff; font: 800 12px var(--font-plus-jakarta), sans-serif; cursor: pointer; }
 .danger-button:hover { background: #8C2F21; }
 .danger-button:disabled { opacity: .6; cursor: wait; }
-.gateway-simulator header p:last-child { color: var(--muted); font-size: 12px; }
-.gateway-simulator .gateway-footer { margin-top: 18px; }
 .gateway-paid { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 16px; border-radius: 12px; color: var(--green); background: #E3F1EE; }
 .gateway-paid > svg { flex: 0 0 auto; width: 24px; height: 24px; }
 .gateway-paid strong { display: block; font-size: 13px; }

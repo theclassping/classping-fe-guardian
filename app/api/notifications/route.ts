@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { notificationsForBackend, sessionStudentId } from "@/lib/backend";
+import { notificationsForBackend } from "@/features/notifications/api";
+import { sessionStudentId } from "@/features/family/api";
 
 export async function GET() {
   const studentId = await sessionStudentId();
