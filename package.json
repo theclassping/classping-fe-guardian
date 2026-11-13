@@ -11,12 +11,17 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/baloo-2": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
+    "@react-pdf/renderer": "^4.9.0",
+    "classping-album": "github:theclassping/classping-album#v0.2.2",
     "lucide-react": "^1.37.0",
     "next": "16.3.3",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

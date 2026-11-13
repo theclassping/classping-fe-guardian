@@ -30,7 +30,7 @@ export type ApiClassTeacher = {
   staff?: { name?: string; first_name?: string; last_name?: string };
 };
 
-export type ApiStudentLink = { id?: number | string; student_id?: number | string; student?: number | string };
+export type ApiStudentLink = { id?: number | string; student_id?: number | string; student?: number | string; remark?: string | null };
 
 export type ApiActivity = {
   id?: number;
@@ -47,5 +47,7 @@ export type ApiActivity = {
   activity_images?: StudentPhoto[];
   activity_students?: ApiStudentLink[];
   students?: ApiStudentLink[];
+  /** The teacher's note per child, as the backend lists them. */
+  student_remarks?: { student_id?: number | string; remark?: string | null }[];
   is_publish?: boolean;
 };

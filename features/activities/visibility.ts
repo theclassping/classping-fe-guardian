@@ -1,5 +1,5 @@
 /** Defense in depth for the selected child; the backend also scopes every response. */
-export type StudentPhoto = { image_url?: string; caption?: string | null; position?: number; student_id?: number | string | null; student_ids?: (number | string)[]; tag_state?: "unreviewed" | "individual" | "group" | "legacy" };
+export type StudentPhoto = { id?: number | string; image_url?: string; caption?: string | null; position?: number; student_id?: number | string | null; student_ids?: (number | string)[]; tag_state?: "unreviewed" | "individual" | "group" | "legacy" };
 export function photoStudentIds(photo: StudentPhoto) {
   return (photo.student_ids ?? (photo.student_id == null ? [] : [photo.student_id])).map(Number).filter(id => Number.isInteger(id) && id > 0);
 }

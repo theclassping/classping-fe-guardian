@@ -33,19 +33,22 @@ function nameFromTeacher(value?: ApiClassTeacher | string | number) {
     [value.first_name || staff?.first_name, value.last_name || staff?.last_name].filter(Boolean).join(" ") || undefined;
 }
 
+/** Shown when no teacher name can be read; the album leaves the teacher out instead. */
+export const UNKNOWN_TEACHER = "Nama guru belum tersedia";
+
 /** The teacher's name, from the activity itself or its class-teacher assignment. */
 export async function teacherForActivity(activity: ApiActivity, cache: TeacherCache) {
   const directName = activity.teacher_name || nameFromTeacher(activity.teacher) || nameFromTeacher(activity.class_teacher as ApiClassTeacher | number | undefined);
   if (directName) return directName;
   const assignmentId = activity.class_teacher_id ?? (typeof activity.class_teacher === "number" || typeof activity.class_teacher === "string" ? activity.class_teacher : activity.class_teacher?.id);
-  if (!assignmentId) return "Nama guru belum tersedia";
+  if (!assignmentId) return UNKNOWN_TEACHER;
   const key = String(assignmentId);
   let lookup = cache.get(key);
   if (!lookup) {
     lookup = get<ApiClassTeacher>(`/api/class-teachers/${encodeURIComponent(key)}/`);
     cache.set(key, lookup);
   }
-  return nameFromTeacher((await lookup) || undefined) || "Nama guru belum tersedia";
+  return nameFromTeacher((await lookup) || undefined) || UNKNOWN_TEACHER;
 }
 
 /** Backend activity → card/detail view. Missing fields get neutral defaults, never invented content. */
