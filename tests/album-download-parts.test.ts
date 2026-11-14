@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { doodlesIn, entryZones } from "classping-album/doodles";
-import { buildAlbum, downloadPeriodsFor } from "classping-album/model";
+import { buildAlbum, downloadPartsFor, downloadPeriodsFor } from "classping-album/model";
 import { parsePeriodParam, periodLabel, periodParam, periodRange } from "classping-album/period";
 import type { AlbumActivity, AlbumSource } from "classping-album/types";
 
@@ -37,16 +37,24 @@ describe("downloadPeriodsFor", () => {
     const bigMonth = buildAlbum(source([activity("a", "2026-10-03", 200)], { kind: "month", year: 2026, month: 10 }));
     expect(downloadPeriodsFor(bigMonth)).toEqual([{ kind: "month", year: 2026, month: 10 }]);
   });
-  it("splits a big year into consecutive month runs under the cap", () => {
+  it("splits a big year by semester first, and a semester over the cap into month runs", () => {
     const doc = buildAlbum(source([activity("jul", "2026-07-03", 50), activity("sep", "2026-09-09", 60), activity("nov", "2026-11-01", 30), activity("mar", "2027-03-01", 90), activity("jun", "2027-06-01", 10)], year));
-    const parts = downloadPeriodsFor(doc, 120);
-    // Months are packed greedily: July–October holds 110, November–May exactly 120, June the rest.
-    expect(parts).toEqual([
+    // Semester 1 holds 140 (over the cap), semester 2 holds 100.
+    expect(downloadPeriodsFor(doc, 120)).toEqual([
       { kind: "range", from: "2026-07-01", to: "2026-10-31" },
-      { kind: "range", from: "2026-11-01", to: "2027-05-31" },
-      { kind: "range", from: "2027-06-01", to: "2027-06-30" },
+      { kind: "range", from: "2026-11-01", to: "2026-12-31" },
+      { kind: "range", from: "2027-01-01", to: "2027-06-30" },
     ]);
-    expect(parts.map((part) => periodLabel(part))).toEqual(["Juli–Oktober 2026", "November 2026–Mei 2027", "Juni 2027"]);
+    expect(downloadPartsFor(doc, 120).map((part) => part.label)).toEqual(["Bagian 1 · Juli–Oktober 2026", "Bagian 2 · November–Desember 2026", "Bagian 3 · Januari–Juni 2027"]);
+    expect(downloadPartsFor(doc, 120).map((part) => part.photos)).toEqual([110, 30, 100]);
+
+    const even = buildAlbum(source([activity("aug", "2026-08-03", 100), activity("feb", "2027-02-09", 100)], year));
+    const semesters = downloadPartsFor(even, 120);
+    expect(semesters.map((part) => part.label)).toEqual(["Semester 1 · Juli–Desember 2026", "Semester 2 · Januari–Juni 2027"]);
+    expect(semesters.map((part) => part.photos)).toEqual([100, 100]);
+
+    const small = buildAlbum(source([activity("aug", "2026-08-03", 10)], year));
+    expect(downloadPartsFor(small).map((part) => part.label)).toEqual(["Tahun Ajaran 2026/2027"]);
   });
 });
 

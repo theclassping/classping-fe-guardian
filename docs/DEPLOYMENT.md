@@ -125,3 +125,11 @@ For staging and production, verify:
 ## Rollback
 
 Use Vercel's deployment history to promote the previous known-good production deployment immediately. Then revert the faulty commit on `release` through a reviewed pull request and merge the correction back into `dev`. Avoid rewriting branch history during an incident.
+
+## Yearly album builds
+
+`POST /api/album/jobs` renders a year album after its response, with Next's `after()`, and uploads the PDFs
+through the backend's album artifacts API. The route declares `maxDuration = 300`, so the Vercel project must
+allow functions to run for up to five minutes (Fluid compute, or a Pro plan). A build whose worker is cut off
+shows no heartbeat for a few minutes and is restarted by the next status poll. The backend must include the
+`albums` app (branch `feat/album-artifacts` or later) and its migrations.

@@ -5,8 +5,8 @@ import PageHeader from "@/components/PageHeader";
 import AlbumPreview from "classping-album/components/AlbumPreview";
 import AlbumToolbar from "@/features/album/components/AlbumToolbar";
 import { academicYearOptionsFor, albumMonthsFor, albumSourceFor } from "@/features/album/api";
-import { buildAlbum, downloadPeriodsFor } from "classping-album/model";
-import { currentMonth, parsePeriodParam, periodLabel, periodParam } from "classping-album/period";
+import { buildAlbum, downloadPartsFor } from "classping-album/model";
+import { currentMonth, parsePeriodParam, periodParam } from "classping-album/period";
 import { schoolForBackend, selectedStudentForRequest } from "@/features/family/api";
 
 export const metadata = { title: "Album Digital" };
@@ -25,8 +25,8 @@ export default async function AlbumPage({ searchParams }: { searchParams: Promis
   const [months, years] = await Promise.all([albumMonthsFor(numericStudentId), academicYearOptionsFor(school?.branch_id)]);
   const period = parsePeriodParam(requested, years) ?? (months[0] ? { kind: "month" as const, ...months[0] } : currentMonth());
   const album = buildAlbum(await albumSourceFor(numericStudentId, period, child, school));
-  // A year with more photos than one PDF can hold downloads as consecutive parts.
-  const downloadParts = downloadPeriodsFor(album).map((part) => ({ value: periodParam(part), label: periodLabel(part) }));
+  // A range with more photos than one PDF can hold downloads as consecutive parts; years are built once and stored.
+  const downloadParts = downloadPartsFor(album).map((part) => ({ value: periodParam(part.period), label: part.label }));
   return (
     <div className="content-page">
       <Link className="back-link" href="/dashboard/activities"><ArrowLeft /> Kembali ke aktivitas</Link>

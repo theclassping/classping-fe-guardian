@@ -35,6 +35,7 @@ async function albumActivity(item: ApiActivity, studentId: number, cache: Teache
     description: item.description?.trim() || undefined,
     teacher: await teacherForActivity(item, cache).then((name) => (name === UNKNOWN_TEACHER ? undefined : name)),
     remark: remark || undefined,
+    updatedAt: item.updated_at || undefined,
     photos,
   };
 }

@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { monthLabel, periodLabel, periodParam, type AcademicYearOption, type Period } from "classping-album/period";
+import YearlyDownload from "@/features/album/components/YearlyDownload";
 
 export type PeriodChoice = { value: string; label: string };
 
@@ -14,7 +15,7 @@ export default function AlbumToolbar({ period, months, years, pageCount, photoCo
   years: AcademicYearOption[];
   pageCount: number;
   photoCount: number;
-  /** One entry when the album fits a single PDF; several consecutive parts when it does not. */
+  /** One entry when the album fits a single PDF; several consecutive parts when it does not. Year albums use the stored build instead. */
   downloadParts: PeriodChoice[];
 }) {
   const router = useRouter();
@@ -49,7 +50,9 @@ export default function AlbumToolbar({ period, months, years, pageCount, photoCo
         </select>
       </label>
       <p>{pageCount} halaman · {photoCount} foto</p>
-      {parts.length === 1 ? (
+      {period.kind === "year" ? (
+        <YearlyDownload key={current} period={current} photoCount={photoCount} />
+      ) : parts.length === 1 ? (
         <a className="primary-button" href={`/api/album?period=${encodeURIComponent(parts[0].value)}`} download onClick={() => startDownload(parts[0].value)} aria-busy={downloading === parts[0].value}>
           <Download /> {downloading === parts[0].value ? "Menyiapkan PDF…" : "Unduh PDF"}
         </a>
