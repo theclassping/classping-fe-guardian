@@ -5,7 +5,7 @@ import { ArrowLeft, Ban, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, Sh
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
+import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, providerLabel, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
 import { formatDateTime, rupiah } from "@/lib/format";
 
 const POLL_MS = 10_000;
@@ -85,6 +85,12 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
   const status = expired ? "expired" : payment.status;
   const remaining = status === "pending" ? timeLeft(payment.expires_at, now) : "";
   const external = isExternalMethod(payment.payment_method);
+  const provider = providerLabel(payment);
+  const showsVa = payment.payment_method === "virtual_account" && Boolean(payment.payment_code);
+  const showsQr = payment.payment_method === "qris" && Boolean(payment.payment_code);
+  const showsHandover = external && Boolean(handoverLink(payment));
+  /** Pending, but nothing above can tell the parent how to pay (unknown method or missing code/link). */
+  const missingInstructions = !showsVa && !showsQr && !showsHandover;
   /** Finished without payment: the invoices are free to be paid again. */
   const ended = status === "expired" || status === "cancelled" || status === "failed";
 
@@ -135,7 +141,7 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
 
             <div className="gateway-deadline"><Clock3 aria-hidden="true" /><div><strong>Bayar sebelum {formatDateTime(payment.expires_at)}</strong><small>{remaining ? `Sisa waktu ${remaining}` : "Batas waktu hampir habis"} · status diperbarui otomatis</small></div></div>
 
-            {payment.payment_method === "virtual_account" && payment.payment_code && (
+            {showsVa && payment.payment_code && (
               <div className="gateway-instruction">
                 <span className="gateway-instruction-label">Nomor Virtual Account</span>
                 <div className="gateway-code"><code>{payment.payment_code}</code><button type="button" className="outline-button" onClick={() => void copyCode(payment.payment_code || "")}><Copy aria-hidden="true" /> {copied ? "Tersalin" : "Salin"}</button></div>
@@ -147,7 +153,7 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
               </div>
             )}
 
-            {payment.payment_method === "qris" && payment.payment_code && (
+            {showsQr && (
               <div className="gateway-instruction gateway-qris">
                 <span className="gateway-instruction-label">Pindai kode QRIS</span>
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL generated in the browser */}
@@ -160,18 +166,29 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
               </div>
             )}
 
-            {external && handoverLink(payment) && (
+            {showsHandover && (
               <div className="gateway-instruction">
-                <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit" : `Pembayaran lewat ${payment.channel_name || "aplikasi e-commerce"}`}</span>
+                <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit/debit" : `Pembayaran lewat ${payment.channel_name || "aplikasi pembayaran"}`}</span>
                 <div className="gateway-external-actions">
                   <Link className="primary-button" href={gatewayRedirectHref(payment.id, childQuery)}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></Link>
                   <Link className="outline-button" href={gatewayReturnHref(payment)}>Saya sudah membayar</Link>
                 </div>
                 <ol>
-                  <li>Anda akan diarahkan ke halaman {payment.payment_method === "credit_card" ? "Rintisan" : payment.channel_name || "penyedia pembayaran"} untuk menyelesaikan pembayaran sebesar <strong>{rupiah(payment.amount)}</strong>.</li>
+                  {payment.payment_method === "e_wallet" ? (
+                    <li>Anda akan diarahkan ke aplikasi atau halaman {provider}. Pastikan akun {provider} Anda aktif dan saldonya cukup untuk membayar <strong>{rupiah(payment.amount)}</strong>.</li>
+                  ) : (
+                    <li>Anda akan diarahkan ke halaman {provider} untuk menyelesaikan pembayaran sebesar <strong>{rupiah(payment.amount)}</strong>.</li>
+                  )}
                   <li>Setelah selesai, kembali ke ClassPing lewat tombol kembali di peramban atau pilih &ldquo;Saya sudah membayar&rdquo;.</li>
                   <li>Status berubah menjadi lunas begitu {payment.channel_name || "penyedia pembayaran"} mengonfirmasi pembayaran.</li>
                 </ol>
+              </div>
+            )}
+
+            {missingInstructions && (
+              <div className="payment-rejection-message" role="alert">
+                <p><strong>Instruksi pembayaran belum tersedia.</strong></p>
+                <p>{payment.channel_name || "Penyedia pembayaran"} belum mengirimkan cara pembayaran untuk transaksi ini. Tunggu sebentar lalu pilih &ldquo;Periksa sekarang&rdquo;, atau batalkan dan pilih metode lain.</p>
               </div>
             )}
 

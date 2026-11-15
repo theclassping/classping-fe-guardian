@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
+import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExternalLink, groupChannels, isExpired, isExternalMethod, methodLabel, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
 import { isPayableOnline } from "@/features/payments/helpers";
 import type { Invoice } from "@/features/payments/types";
 
@@ -25,6 +25,33 @@ describe("gateway helpers", () => {
     expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "credit_card", "e_commerce"]);
     expect(isExternalMethod("e_commerce")).toBe(true);
     expect(isExternalMethod("virtual_account")).toBe(false);
+  });
+
+  it("shows e-wallet channels after VA, reports the cheapest fee per group, and hands e-wallets over", () => {
+    const channels: GatewayChannel[] = [
+      { code: "CREDIT_CARD", name: "Kartu Kredit/Debit", payment_method: "credit_card", transaction_fee: "34369.00", amount: "1034369.00" },
+      { code: "EMONEY_OVO", name: "OVO", payment_method: "e_wallet", transaction_fee: "36590.00", amount: "1036590.00" },
+      { code: "EMONEY_DANA", name: "DANA", payment_method: "e_wallet", transaction_fee: "16932.00", amount: "1016932.00" },
+      { code: "VIRTUAL_ACCOUNT_BCA", name: "BCA Virtual Account", payment_method: "virtual_account", transaction_fee: "4995.00", amount: "1004995.00" },
+      { code: "VIRTUAL_ACCOUNT_BRI", name: "BRI Virtual Account", payment_method: "virtual_account", transaction_fee: "4440.00", amount: "1004440.00" },
+    ];
+    const groups = groupChannels(channels);
+    expect(groups.map((group) => group.method)).toEqual(["virtual_account", "e_wallet", "credit_card"]);
+    expect(groups.map((group) => group.minFee)).toEqual([4440, 16932, 34369]);
+    expect(groups[1].label).toBe("E-Wallet");
+    expect(groups[1].channels.map((channel) => channel.code)).toEqual(["EMONEY_OVO", "EMONEY_DANA"]);
+    expect(isExternalMethod("e_wallet")).toBe(true);
+  });
+
+  it("keeps channels of a method this build does not know yet instead of hiding them", () => {
+    const channels = [
+      { code: "VIRTUAL_ACCOUNT_BNI", name: "BNI Virtual Account", payment_method: "virtual_account", transaction_fee: "4440.00", amount: "1004440.00" },
+      { code: "PAYLATER_X", name: "Paylater X", payment_method: "pay_later", transaction_fee: "0.00", amount: "1000000.00" },
+    ] as unknown as GatewayChannel[];
+    const groups = groupChannels(channels);
+    expect(groups.map((group) => group.method)).toEqual(["virtual_account", "pay_later"]);
+    expect(groups[1].label).toBe("Pay later");
+    expect(methodLabel("")).toBe("Metode lain");
   });
 
   it("builds the hand-over URL and only treats absolute links as provider billing pages", () => {

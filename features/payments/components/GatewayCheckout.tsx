@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, ShoppingBag, Wallet, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile } from "@/features/family/types";
@@ -10,7 +10,16 @@ import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, gatew
 import { rupiah } from "@/lib/format";
 import { isPayableOnline, remainingAmount, totalRemaining } from "@/features/payments/helpers";
 
-const METHOD_ICONS = { virtual_account: Building2, credit_card: CreditCard, e_commerce: ShoppingBag, qris: QrCode } as const;
+const METHOD_ICONS: Record<string, LucideIcon> = { virtual_account: Building2, e_wallet: Wallet, credit_card: CreditCard, e_commerce: ShoppingBag, qris: QrCode };
+
+/** One line under each method heading telling the parent how that method is finished. */
+const METHOD_HINTS: Record<string, string> = {
+  virtual_account: "Transfer dari m-banking, internet banking, atau ATM ke nomor Virtual Account.",
+  e_wallet: "Anda akan diarahkan ke aplikasi atau halaman e-wallet untuk menyetujui pembayaran.",
+  qris: "Pindai kode QR dengan aplikasi e-wallet atau m-banking apa pun.",
+  credit_card: "Isi data kartu di halaman pembayaran resmi mitra sekolah.",
+  e_commerce: "Selesaikan pembayaran di aplikasi e-commerce pilihan Anda.",
+};
 
 export default function GatewayCheckout({ child, invoices, listHref, childQuery }: { child: ChildProfile; invoices: readonly Invoice[]; listHref: string; childQuery: string }) {
   const router = useRouter();
@@ -81,10 +90,12 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
             ) : !channels ? (
               <p className="form-message" role="status">Memuat metode pembayaran…</p>
             ) : groupChannels(channels.channels).map((group) => {
-              const Icon = METHOD_ICONS[group.method];
+              const Icon = METHOD_ICONS[group.method] || Wallet;
+              const hint = METHOD_HINTS[group.method];
               return (
                 <div className="gateway-channel-group" key={group.method}>
-                  <h3><Icon aria-hidden="true" /> {group.label}</h3>
+                  <h3><Icon aria-hidden="true" /> {group.label}{group.channels.length > 1 && group.minFee !== undefined && <small className="gateway-channel-group-fee">{group.minFee > 0 ? `Biaya mulai ${rupiah(group.minFee)}` : "Ada pilihan tanpa biaya"}</small>}</h3>
+                  {hint && <p className="gateway-channel-hint">{hint}</p>}
                   {group.channels.map((item) => (
                     <label className={`gateway-channel${channel === item.code ? " is-selected" : ""}`} key={item.code}>
                       <input type="radio" name="channel" value={item.code} checked={channel === item.code} onChange={() => { setChannel(item.code); setError(""); }} />

@@ -9,7 +9,7 @@
 import { records } from "@/lib/records";
 import { proxyUrl } from "@/lib/routes";
 
-export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "qris";
+export type GatewayMethod = "virtual_account" | "e_wallet" | "credit_card" | "e_commerce" | "qris";
 /** `failed`: the provider could not create the billing, so the parent never received payment instructions. */
 export type GatewayStatus = "pending" | "paid" | "expired" | "cancelled" | "failed";
 
@@ -67,7 +67,7 @@ export type GatewayPayment = Omit<GatewayPaymentSummary, "invoice_count"> & {
   branch_id?: number;
   platform_fee?: string;
   payment_code: string | null;
-  /** Provider's own link for e-commerce apps (Tokopedia, Blibli). */
+  /** Provider's own link for e-wallet and e-commerce apps (DANA, OVO, Tokopedia, …). */
   payment_link: string | null;
   /** Rintisan's hosted billing page (`/penagihan/…`), the page card payments are made on. */
   billing_url?: string | null;
@@ -98,15 +98,31 @@ export const GATEWAY_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export const METHOD_LABELS: Record<GatewayMethod, string> = {
-  virtual_account: "Virtual Account",
-  credit_card: "Kartu Kredit",
+  virtual_account: "Virtual Account (Transfer Bank)",
+  e_wallet: "E-Wallet",
+  credit_card: "Kartu Kredit/Debit",
   e_commerce: "E-Commerce",
   qris: "QRIS",
 };
 
 /** Methods completed on the provider's or another app's page, after which the parent is sent back to the return page. */
 export function isExternalMethod(method: GatewayMethod) {
-  return method === "credit_card" || method === "e_commerce";
+  return method === "e_wallet" || method === "credit_card" || method === "e_commerce";
+}
+
+/** Who the parent finishes paying with: card payments happen on Rintisan's page, the rest in the named app. */
+export function providerLabel(payment: Pick<GatewayPayment, "payment_method" | "channel_name">) {
+  return payment.payment_method === "credit_card" ? "Rintisan" : payment.channel_name || "penyedia pembayaran";
+}
+
+/** Order the method groups are shown in; methods the backend adds later follow at the end. */
+const METHOD_ORDER: readonly GatewayMethod[] = ["virtual_account", "e_wallet", "qris", "credit_card", "e_commerce"];
+
+/** Label for a method, falling back to a readable form of codes this build does not know yet. */
+export function methodLabel(method: string) {
+  if (method in METHOD_LABELS) return METHOD_LABELS[method as GatewayMethod];
+  const words = method.replace(/[_-]+/g, " ").trim().toLowerCase();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Metode lain";
 }
 
 export const STATUS_LABELS: Record<GatewayStatus, string> = {
@@ -129,12 +145,19 @@ export function statusTone(status: GatewayStatus) {
   return STATUS_TONES[status];
 }
 
-/** Channels grouped by method, in the order shown to the parent. */
+/**
+ * Channels grouped by method, in the order shown to the parent. Methods missing
+ * from METHOD_ORDER are kept (after the known ones), so a channel the backend
+ * starts offering never silently disappears from checkout.
+ */
 export function groupChannels(channels: readonly GatewayChannel[]) {
-  const order: GatewayMethod[] = ["virtual_account", "credit_card", "e_commerce", "qris"];
-  return order
-    .map((method) => ({ method, label: METHOD_LABELS[method], channels: channels.filter((channel) => channel.payment_method === method) }))
-    .filter((group) => group.channels.length > 0);
+  const rank = (method: string) => { const index = METHOD_ORDER.indexOf(method as GatewayMethod); return index === -1 ? METHOD_ORDER.length : index; };
+  const methods = Array.from(new Set(channels.map((channel) => channel.payment_method))).sort((a, b) => rank(a) - rank(b));
+  return methods.map((method) => {
+    const items = channels.filter((channel) => channel.payment_method === method);
+    const fees = items.map((channel) => Number(channel.transaction_fee)).filter(Number.isFinite);
+    return { method, label: methodLabel(method), channels: items, minFee: fees.length ? Math.min(...fees) : undefined };
+  });
 }
 
 export function isExpired(payment: Pick<GatewayPayment, "status" | "expires_at">, now = new Date()) {

@@ -831,6 +831,8 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .gateway-channel-group + .gateway-channel-group { margin-top: 14px; }
 .gateway-channel-group h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; }
 .gateway-channel-group h3 svg { width: 15px; color: var(--green); }
+.gateway-channel-group h3 .gateway-channel-group-fee { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.gateway-channel-hint { margin: 0 0 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .gateway-channel { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 10px; align-items: center; margin-top: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .18s, background .18s; }
 .gateway-channel:hover { border-color: #BFE3D8; }
 .gateway-channel.is-selected { border-color: var(--green); background: #F2FAF7; box-shadow: 0 0 0 3px rgba(0,115,95,.1); }

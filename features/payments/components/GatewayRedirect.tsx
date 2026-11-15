@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, type GatewayPayment } from "@/features/payments/gateway";
+import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, providerLabel, type GatewayPayment } from "@/features/payments/gateway";
 import { rupiah } from "@/lib/format";
 
 const COUNTDOWN_SECONDS = 4;
@@ -61,7 +61,7 @@ export default function GatewayRedirect({ paymentId, listHref, childQuery }: { p
   }
 
   const doneHref = payment ? gatewayReturnHref(payment) : listHref;
-  const providerName = payment?.payment_method === "credit_card" ? "Rintisan" : payment?.channel_name || "penyedia pembayaran";
+  const providerName = payment ? providerLabel(payment) : "penyedia pembayaran";
 
   if (payment === undefined) {
     return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="status"><span aria-hidden="true">⏳</span><h2>Menyiapkan halaman pembayaran…</h2></section></article>;
