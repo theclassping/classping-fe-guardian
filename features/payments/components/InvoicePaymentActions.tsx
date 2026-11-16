@@ -34,7 +34,7 @@ export default function InvoicePaymentActions({ child, invoice: current, gateway
       {online && (
         <div className="gateway-option">
           <Link className="primary-button" href={checkoutHref([current.slug], childQuery)}><CreditCard aria-hidden="true" /> Bayar online</Link>
-          <small>Virtual Account, kartu kredit, Tokopedia, atau Blibli. Tagihan langsung lunas tanpa verifikasi manual.</small>
+          <small>Virtual Account, e-wallet, kartu kredit, atau e-commerce. Tagihan langsung lunas tanpa verifikasi manual.</small>
         </div>
       )}
       <div className={online ? "manual-option" : undefined}>

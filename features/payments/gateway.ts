@@ -6,10 +6,13 @@
 //   POST /api/gateway/payments/{id}/cancel → guardian abandons a pending checkout
 // The manual proof-upload flow stays untouched; this module only adds the
 // online option for branches with `is_payment_gateway_enabled`.
+// Channels come from whichever provider the backend has active (Rintisan,
+// DOKU or DANA); codes are provider-specific, methods are shared. QRIS is not
+// offered: BI forbids charging its MDR to the payer.
 import { records } from "@/lib/records";
 import { proxyUrl } from "@/lib/routes";
 
-export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "qris";
+export type GatewayMethod = "virtual_account" | "credit_card" | "e_commerce" | "e_wallet";
 /** `failed`: the provider could not create the billing, so the parent never received payment instructions. */
 export type GatewayStatus = "pending" | "paid" | "expired" | "cancelled" | "failed";
 
@@ -101,12 +104,21 @@ export const METHOD_LABELS: Record<GatewayMethod, string> = {
   virtual_account: "Virtual Account",
   credit_card: "Kartu Kredit",
   e_commerce: "E-Commerce",
-  qris: "QRIS",
+  e_wallet: "E-Wallet",
 };
 
 /** Methods completed on the provider's or another app's page, after which the parent is sent back to the return page. */
 export function isExternalMethod(method: GatewayMethod) {
-  return method === "credit_card" || method === "e_commerce";
+  return method === "credit_card" || method === "e_commerce" || method === "e_wallet";
+}
+
+/**
+ * Whether this checkout is paid on a hosted page rather than by transferring
+ * to a code shown in the portal. DOKU also returns a checkout page for virtual
+ * accounts, so a VA without a number falls back to that page.
+ */
+export function paysOnProviderPage(payment: Pick<GatewayPayment, "payment_method" | "payment_code" | "payment_link" | "billing_url">) {
+  return Boolean(handoverLink(payment)) && (isExternalMethod(payment.payment_method) || !payment.payment_code);
 }
 
 export const STATUS_LABELS: Record<GatewayStatus, string> = {
@@ -131,7 +143,7 @@ export function statusTone(status: GatewayStatus) {
 
 /** Channels grouped by method, in the order shown to the parent. */
 export function groupChannels(channels: readonly GatewayChannel[]) {
-  const order: GatewayMethod[] = ["virtual_account", "credit_card", "e_commerce", "qris"];
+  const order: GatewayMethod[] = ["virtual_account", "e_wallet", "credit_card", "e_commerce"];
   return order
     .map((method) => ({ method, label: METHOD_LABELS[method], channels: channels.filter((channel) => channel.payment_method === method) }))
     .filter((group) => group.channels.length > 0);

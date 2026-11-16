@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Building2, CreditCard, QrCode, ShieldCheck, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CreditCard, ShieldCheck, ShoppingBag, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ChildProfile } from "@/features/family/types";
 import type { Invoice } from "@/features/payments/types";
-import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, gatewayRedirectHref, groupChannels, handoverLink, isExternalMethod, newIdempotencyKey, type GatewayChannelsResponse, type GatewayError } from "@/features/payments/gateway";
+import { createCheckout, durationLabel, fetchChannels, gatewayPaymentHref, gatewayRedirectHref, groupChannels, newIdempotencyKey, paysOnProviderPage, type GatewayChannelsResponse, type GatewayError } from "@/features/payments/gateway";
 import { rupiah } from "@/lib/format";
 import { isPayableOnline, remainingAmount, totalRemaining } from "@/features/payments/helpers";
 
-const METHOD_ICONS = { virtual_account: Building2, credit_card: CreditCard, e_commerce: ShoppingBag, qris: QrCode } as const;
+const METHOD_ICONS = { virtual_account: Building2, credit_card: CreditCard, e_commerce: ShoppingBag, e_wallet: Wallet } as const;
 
 export default function GatewayCheckout({ child, invoices, listHref, childQuery }: { child: ChildProfile; invoices: readonly Invoice[]; listHref: string; childQuery: string }) {
   const router = useRouter();
@@ -47,8 +47,8 @@ export default function GatewayCheckout({ child, invoices, listHref, childQuery 
         channel: selectedChannel.code,
         idempotencyKey,
       });
-      // Card and e-commerce checkouts are paid on the provider's billing page: hand over right away.
-      router.push(isExternalMethod(payment.payment_method) && handoverLink(payment) ? gatewayRedirectHref(payment.id, childQuery) : gatewayPaymentHref(payment.id, childQuery));
+      // Card, e-wallet and e-commerce checkouts are paid on the provider's page: hand over right away.
+      router.push(paysOnProviderPage(payment) ? gatewayRedirectHref(payment.id, childQuery) : gatewayPaymentHref(payment.id, childQuery));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Pembayaran online tidak dapat dibuat.");
       setSubmitting(false);

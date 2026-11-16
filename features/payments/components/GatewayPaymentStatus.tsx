@@ -4,8 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Ban, CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
-import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
+import { cancelGatewayPayment, fetchGatewayPayment, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExpired, paysOnProviderPage, STATUS_LABELS, statusTone, timeLeft, type GatewayPayment } from "@/features/payments/gateway";
 import { formatDateTime, rupiah } from "@/lib/format";
 
 const POLL_MS = 10_000;
@@ -20,7 +19,6 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
   const [payment, setPayment] = useState<GatewayPayment | null | undefined>(undefined);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [qr, setQr] = useState("");
   const [now, setNow] = useState(() => new Date());
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -51,12 +49,6 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payment?.status, paymentId, returned]);
 
-  useEffect(() => {
-    if (payment?.payment_method === "qris" && payment.payment_code) {
-      QRCode.toDataURL(payment.payment_code, { width: 260, margin: 1, color: { dark: "#3A2F27", light: "#FFFFFF" } }).then(setQr).catch(() => setQr(""));
-    }
-  }, [payment?.payment_method, payment?.payment_code]);
-
   async function copyCode(value: string) {
     try { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
@@ -84,7 +76,7 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
   const expired = isExpired(payment, now);
   const status = expired ? "expired" : payment.status;
   const remaining = status === "pending" ? timeLeft(payment.expires_at, now) : "";
-  const external = isExternalMethod(payment.payment_method);
+  const external = paysOnProviderPage(payment);
   /** Finished without payment: the invoices are free to be paid again. */
   const ended = status === "expired" || status === "cancelled" || status === "failed";
 
@@ -147,28 +139,15 @@ export default function GatewayPaymentStatus({ paymentId, listHref, childQuery, 
               </div>
             )}
 
-            {payment.payment_method === "qris" && payment.payment_code && (
-              <div className="gateway-instruction gateway-qris">
-                <span className="gateway-instruction-label">Pindai kode QRIS</span>
-                {/* eslint-disable-next-line @next/next/no-img-element -- data URL generated in the browser */}
-                {qr ? <img src={qr} alt="Kode QRIS pembayaran" width={260} height={260} /> : <p className="form-message">Menyiapkan kode QR…</p>}
-                <ol>
-                  <li>Buka aplikasi e-wallet atau m-banking yang mendukung QRIS.</li>
-                  <li>Pindai kode di atas dan periksa nominal <strong>{rupiah(payment.amount)}</strong>.</li>
-                  <li>Selesaikan pembayaran; status di halaman ini akan berubah otomatis.</li>
-                </ol>
-              </div>
-            )}
-
-            {external && handoverLink(payment) && (
+            {external && (
               <div className="gateway-instruction">
-                <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit" : `Pembayaran lewat ${payment.channel_name || "aplikasi e-commerce"}`}</span>
+                <span className="gateway-instruction-label">{payment.payment_method === "credit_card" ? "Pembayaran kartu kredit" : payment.payment_method === "e_wallet" ? `Pembayaran lewat ${payment.channel_name || "e-wallet"}` : `Pembayaran lewat ${payment.channel_name || "halaman penyedia pembayaran"}`}</span>
                 <div className="gateway-external-actions">
                   <Link className="primary-button" href={gatewayRedirectHref(payment.id, childQuery)}>{returned ? "Buka lagi halaman pembayaran" : "Lanjutkan ke halaman pembayaran"} <ExternalLink aria-hidden="true" /></Link>
                   <Link className="outline-button" href={gatewayReturnHref(payment)}>Saya sudah membayar</Link>
                 </div>
                 <ol>
-                  <li>Anda akan diarahkan ke halaman {payment.payment_method === "credit_card" ? "Rintisan" : payment.channel_name || "penyedia pembayaran"} untuk menyelesaikan pembayaran sebesar <strong>{rupiah(payment.amount)}</strong>.</li>
+                  <li>Anda akan diarahkan ke halaman pembayaran {payment.channel_name || "penyedia pembayaran"} untuk menyelesaikan pembayaran sebesar <strong>{rupiah(payment.amount)}</strong>.</li>
                   <li>Setelah selesai, kembali ke ClassPing lewat tombol kembali di peramban atau pilih &ldquo;Saya sudah membayar&rdquo;.</li>
                   <li>Status berubah menjadi lunas begitu {payment.channel_name || "penyedia pembayaran"} mengonfirmasi pembayaran.</li>
                 </ol>

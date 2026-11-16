@@ -859,9 +859,6 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .gateway-code .outline-button svg { width: 16px; }
 .gateway-instruction ol { margin: 14px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .gateway-instruction ol strong { color: var(--ink); }
-.gateway-qris { text-align: center; }
-.gateway-qris img { display: block; width: min(260px, 100%); height: auto; margin: 0 auto; border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
-.gateway-qris ol { text-align: left; }
 .gateway-instruction .primary-button svg { width: 16px; }
 .gateway-instruction .fine-note { margin: 12px 0 0; }
 .gateway-cancelled, .gateway-returned { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 16px; border-radius: 12px; }

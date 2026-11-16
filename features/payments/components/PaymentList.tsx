@@ -37,7 +37,7 @@ export default function PaymentList({ items: invoices, studentId, gatewayEnabled
         <div className="gateway-select-bar panel" role="region" aria-label="Pembayaran online">
           <div>
             <strong><CreditCard aria-hidden="true" /> Bayar online</strong>
-            <p>{chosen.length ? `${chosen.length} tagihan dipilih · total ${rupiah(total)}` : "Centang tagihan yang ingin dibayar sekaligus lewat Virtual Account, kartu kredit, Tokopedia, atau Blibli."}</p>
+            <p>{chosen.length ? `${chosen.length} tagihan dipilih · total ${rupiah(total)}` : "Centang tagihan yang ingin dibayar sekaligus lewat Virtual Account, e-wallet, kartu kredit, atau e-commerce."}</p>
           </div>
           <div className="gateway-select-actions">
             <button type="button" className="outline-button" onClick={() => setSelected(selected.length === payable.length ? [] : payable.map((invoice) => invoice.slug))}>{selected.length === payable.length ? "Batal pilih semua" : "Pilih semua"}</button>

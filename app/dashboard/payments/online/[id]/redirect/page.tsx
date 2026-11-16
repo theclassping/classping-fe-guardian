@@ -2,7 +2,7 @@ import { paymentGatewayForStudent, selectedStudentForRequest } from "@/features/
 import GatewayRedirect from "@/features/payments/components/GatewayRedirect";
 import PaymentLookupNotice from "@/features/payments/components/PaymentLookupNotice";
 
-/** Hand-over to the provider's billing page (Rintisan card form, Tokopedia, Blibli) for one online checkout. */
+/** Hand-over to the provider's billing page (card form, e-wallet, Tokopedia, Blibli) for one online checkout. */
 export default async function GatewayRedirectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { numericStudentId, childQuery } = await selectedStudentForRequest();

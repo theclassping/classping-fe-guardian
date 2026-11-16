@@ -4,7 +4,7 @@ import GatewayReturn from "@/features/payments/components/GatewayReturn";
 
 /**
  * Landing page for the provider's return URL after the parent pays on an
- * external page (card form, Tokopedia, Blibli). It resolves whichever
+ * external page (card form, e-wallet, Tokopedia, Blibli). It resolves whichever
  * reference the provider sends back and hands over to the status page, which
  * keeps polling until the payment callback marks the checkout paid.
  */

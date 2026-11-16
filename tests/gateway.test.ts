@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
+import { cancelGatewayPayment, checkoutHref, createCheckout, durationLabel, fetchChannels, fetchGatewayPayments, gatewayRedirectHref, gatewayReturnHref, handoverLink, isExternalLink, groupChannels, isExpired, isExternalMethod, parseInvoiceIds, paysOnProviderPage, returnReference, STATUS_LABELS, statusTone, timeLeft, type GatewayChannel, type GatewayStatus } from "@/features/payments/gateway";
 import { isPayableOnline } from "@/features/payments/helpers";
 import type { Invoice } from "@/features/payments/types";
 
@@ -16,14 +16,16 @@ describe("gateway helpers", () => {
     expect(checkoutHref(["11", "12"], "?student_id=6")).toBe("/dashboard/payments/checkout?student_id=6&invoices=11%2C12");
   });
 
-  it("groups channels by method in VA → card → e-commerce order and drops empty groups", () => {
+  it("groups channels by method in VA → e-wallet → card → e-commerce order and drops empty groups", () => {
     const channels: GatewayChannel[] = [
       { code: "TOKOPEDIA NON CC", name: "Tokopedia", payment_method: "e_commerce", transaction_fee: "754.00", amount: "150754.00" },
       { code: "CC", name: "Kartu Kredit", payment_method: "credit_card", transaction_fee: "3062.00", amount: "153062.00" },
       { code: "VABNI", name: "BNI Virtual Account", payment_method: "virtual_account", transaction_fee: "5000.00", amount: "155000.00" },
+      { code: "EMONEY_OVO", name: "OVO", payment_method: "e_wallet", transaction_fee: "5295.00", amount: "155295.00" },
     ];
-    expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "credit_card", "e_commerce"]);
+    expect(groupChannels(channels).map((group) => group.method)).toEqual(["virtual_account", "e_wallet", "credit_card", "e_commerce"]);
     expect(isExternalMethod("e_commerce")).toBe(true);
+    expect(isExternalMethod("e_wallet")).toBe(true);
     expect(isExternalMethod("virtual_account")).toBe(false);
   });
 
@@ -40,6 +42,15 @@ describe("gateway helpers", () => {
     expect(handoverLink({ payment_link: "https://tokopedia.link/pay/1", billing_url: billing })).toBe(billing);
     expect(handoverLink({ payment_link: "https://tokopedia.link/pay/1", billing_url: null })).toBe("https://tokopedia.link/pay/1");
     expect(handoverLink({ payment_link: null })).toBe("");
+  });
+
+  it("pays on the provider page for card, e-wallet and e-commerce, and for a VA that only has a checkout page", () => {
+    const doku = "https://jokul.doku.com/checkout/link/abc";
+    expect(paysOnProviderPage({ payment_method: "e_wallet", payment_code: "", payment_link: doku })).toBe(true);
+    expect(paysOnProviderPage({ payment_method: "credit_card", payment_code: "", payment_link: doku })).toBe(true);
+    expect(paysOnProviderPage({ payment_method: "virtual_account", payment_code: "", payment_link: doku })).toBe(true);
+    expect(paysOnProviderPage({ payment_method: "virtual_account", payment_code: "9881234", payment_link: doku })).toBe(false);
+    expect(paysOnProviderPage({ payment_method: "e_wallet", payment_code: "", payment_link: null })).toBe(false);
   });
 
   it("builds the return URL and reads whichever reference the provider sends back", () => {

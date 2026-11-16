@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, handoverLink, isExpired, isExternalMethod, type GatewayPayment } from "@/features/payments/gateway";
+import { fetchGatewayPayment, gatewayPaymentHref, gatewayReturnHref, handoverLink, isExpired, paysOnProviderPage, type GatewayPayment } from "@/features/payments/gateway";
 import { rupiah } from "@/lib/format";
 
 const COUNTDOWN_SECONDS = 4;
@@ -20,7 +20,7 @@ function markHandover(id: string) {
 
 /**
  * Hand-over page between the checkout and the provider's billing page
- * (Rintisan card form, Tokopedia, Blibli). It shows what is about to be paid,
+ * (card form, e-wallet, Tokopedia, Blibli). It shows what is about to be paid,
  * counts down, then sends the browser to the billing page. Coming back with the
  * browser's Back button lands here again, so the second visit does not
  * redirect: it offers "I have paid" (→ return page) and "open again" instead.
@@ -44,7 +44,7 @@ export default function GatewayRedirect({ paymentId, listHref, childQuery }: { p
   }, [paymentId]);
 
   const link = payment ? handoverLink(payment) : "";
-  const redirectable = Boolean(payment && payment.status === "pending" && !isExpired(payment) && isExternalMethod(payment.payment_method) && link);
+  const redirectable = Boolean(payment && payment.status === "pending" && !isExpired(payment) && paysOnProviderPage(payment));
 
   useEffect(() => {
     if (payment === undefined) return;
@@ -61,7 +61,7 @@ export default function GatewayRedirect({ paymentId, listHref, childQuery }: { p
   }
 
   const doneHref = payment ? gatewayReturnHref(payment) : listHref;
-  const providerName = payment?.payment_method === "credit_card" ? "Rintisan" : payment?.channel_name || "penyedia pembayaran";
+  const providerName = payment?.channel_name || "penyedia pembayaran";
 
   if (payment === undefined) {
     return <article className="detail-page payment-detail"><Link className="back-link" href={listHref}><ArrowLeft /> Kembali ke pembayaran</Link><section className="empty-state panel" role="status"><span aria-hidden="true">⏳</span><h2>Menyiapkan halaman pembayaran…</h2></section></article>;
