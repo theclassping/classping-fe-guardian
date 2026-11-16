@@ -31,7 +31,12 @@ export function topActivities(activities: AlbumActivity[], limit = 3) {
   return [...counts.values()].sort((a, b) => b.count - a.count || a.title.localeCompare(b.title)).slice(0, limit);
 }
 
-function slug(value: string) {
+/** "album-aisyah-range-2026-11-02-2026-11-06.pdf": the PDF's name, also the last path segment of its URL so browsers treat it as a PDF. */
+export function albumFileName(subjectName: string, period: Period) {
+  return `album-${slug(subjectName)}-${periodParam(period).replace(/:/g, "-")}.pdf`;
+}
+
+export function slug(value: string) {
   return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "album";
 }
 
@@ -85,7 +90,7 @@ export function buildAlbum(source: AlbumSource): AlbumDocument {
       return { year, month, photos: activities.filter((activity) => activity.date.startsWith(prefix)).reduce((sum, activity) => sum + activity.photos.length, 0) };
     }),
     title: `Album Digital ${name} · ${label}`,
-    fileName: `album-${slug(name)}-${periodParam(source.period).replace(/:/g, "-")}.pdf`,
+    fileName: albumFileName(name, source.period),
     periodLabel: label,
     subject: source.subject,
     pages,

@@ -8,25 +8,26 @@ import { BookHeart } from "lucide-react";
 import { activityDayKey, dayRangeOf, formatSelection, todayKey } from "@/features/activities/filter";
 import { parseActivityListState } from "@/features/activities/list-state";
 import type { Activity } from "@/features/activities/types";
-import { MAX_PHOTOS_PER_PDF, downloadPartsFor } from "@/features/album/core/model";
-import { periodParam } from "@/features/album/core/period";
+import { MAX_PHOTOS_PER_PDF, albumFileName, downloadPartsFor } from "@/features/album/core/model";
+import { periodParam, type Period } from "@/features/album/core/period";
 import { academicYearLabel, academicYearsOf, monthPhotoCountsFor, semesterLabel, semesterPeriod, type Semester } from "@/features/album/semester";
 
-const albumHref = (value: string) => `/api/album?period=${encodeURIComponent(value)}`;
+const albumHref = (subject: string, period: Period) => `/api/album/${albumFileName(subject, period)}?period=${encodeURIComponent(periodParam(period))}`;
 
-export default function AlbumButton({ items }: { items: readonly Activity[] }) {
+/** `subject` names the child in the PDF's file name. */
+export default function AlbumButton({ items, subject }: { items: readonly Activity[]; subject: string }) {
   const searchParams = useSearchParams();
   const { mode, date } = parseActivityListState(searchParams);
-  if (mode === "all") return <SemesterChooser items={items} />;
+  if (mode === "all") return <SemesterChooser items={items} subject={subject} />;
   const { start, end } = dayRangeOf(mode, date);
   return (
-    <a className="outline-button album-button" href={albumHref(periodParam({ kind: "range", from: start, to: end }))} target="_blank" rel="noopener">
+    <a className="outline-button album-button" href={albumHref(subject, { kind: "range", from: start, to: end })} target="_blank" rel="noopener">
       <BookHeart /> Album Digital <small>{formatSelection(mode, date)}</small>
     </a>
   );
 }
 
-function SemesterChooser({ items }: { items: readonly Activity[] }) {
+function SemesterChooser({ items, subject }: { items: readonly Activity[]; subject: string }) {
   const dated = useMemo(() => items.map((item) => ({ day: activityDayKey(item), photos: item.photos })), [items]);
   const years = useMemo(() => academicYearsOf(dated.flatMap((item) => (item.day ? [item.day] : [])), todayKey()), [dated]);
   const [open, setOpen] = useState(false);
@@ -63,11 +64,11 @@ function SemesterChooser({ items }: { items: readonly Activity[] }) {
             <>
               <p className="album-chooser-note">{photos} foto, lebih dari {MAX_PHOTOS_PER_PDF} per PDF, jadi album dibuka per bagian.</p>
               {parts.map((part) => (
-                <a key={part.label} className="outline-button" href={albumHref(periodParam(part.period))} target="_blank" rel="noopener">{part.label} ({part.photos} foto)</a>
+                <a key={part.label} className="outline-button" href={albumHref(subject, part.period)} target="_blank" rel="noopener">{part.label} ({part.photos} foto)</a>
               ))}
             </>
           ) : (
-            <a className="primary-button" href={albumHref(periodParam(period))} target="_blank" rel="noopener">Buka album ({photos} foto)</a>
+            <a className="primary-button" href={albumHref(subject, period)} target="_blank" rel="noopener">Buka album ({photos} foto)</a>
           )}
         </div>
       )}

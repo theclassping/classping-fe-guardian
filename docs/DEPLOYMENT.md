@@ -128,7 +128,7 @@ Use Vercel's deployment history to promote the previous known-good production de
 
 ## Album PDFs
 
-`GET /api/album?period=…` renders the child's album for a day, a school week, 30 days or a semester on request
+`GET /api/album/<name>.pdf?period=…` renders the child's album for a day, a school week, 30 days or a semester on request
 and returns it inline, so the browser's PDF viewer shows it in a new tab. The route declares `maxDuration = 60`;
 a semester of up to 120 photos renders within that. Bigger semesters are offered in parts by the button. The
 brand fonts are read from `assets/fonts` at the app root, which Next's output tracing bundles.
