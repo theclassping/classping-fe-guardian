@@ -134,28 +134,38 @@ function Entry({ entry, top, height, compact, images }: { entry: ActivityEntry; 
   );
 }
 
+/** Height of a month card: title, weekday header and `weeks` rows. */
+const calendarHeight = (weeks: number, dense: boolean) => (dense ? 10 + 15 + 11 + weeks * 13 + 12 : 10 + 22 + 18 + weeks * 36 + 16);
+
 function MiniCalendar({ calendar, rect, tone, dense }: { calendar: MonthCalendar; rect: Rect; tone: Tone; dense: boolean }) {
-  const cell = rect.width / 7;
+  // Each week is an explicit row: with flex-wrap, seven cells of `width / 7` round past the row width and the
+  // seventh wraps, shifting every day after it.
+  const cell = Math.floor((rect.width - 2) / 7);
   const rowHeight = dense ? 13 : 36;
   const headHeight = dense ? 11 : 18;
   const active = new Set(calendar.activeDays);
   const dot = dense ? 12 : 28;
+  const inset = (rect.width - cell * 7) / 2;
   return (
     <View style={box(rect, { borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: "#fff", paddingTop: 10 })}>
       <Text style={{ ...display(800), fontSize: dense ? 11 : 14, color: colors.ink, marginLeft: dense ? 10 : 14, marginBottom: dense ? 4 : 8 }}>{dense ? calendar.label.split(" ")[0] : calendar.label}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", width: cell * 7 }}>
-        {WEEKDAYS.map((day, index) => <Text key={index} style={{ width: cell, height: headHeight, textAlign: "center", ...body(800), fontSize: dense ? 6 : 8, color: colors.inkMuted }}>{day}</Text>)}
-        {calendar.weeks.flat().map((day, index) => {
-          const isActive = day != null && active.has(day);
-          return (
-            <View key={index} style={{ width: cell, height: rowHeight, alignItems: "center", justifyContent: "center" }}>
-              <View style={isActive ? { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: tonePalette[tone].strong, alignItems: "center", justifyContent: "center" } : {}}>
-                <Text style={{ ...body(isActive ? 800 : 400), fontSize: dense ? 7 : 11, color: isActive ? "#fff" : colors.muted }}>{day ?? ""}</Text>
-              </View>
-            </View>
-          );
-        })}
+      <View style={{ flexDirection: "row", marginLeft: inset, height: headHeight }}>
+        {WEEKDAYS.map((day, index) => <Text key={index} style={{ width: cell, textAlign: "center", ...body(800), fontSize: dense ? 6 : 8, color: colors.inkMuted }}>{day}</Text>)}
       </View>
+      {calendar.weeks.map((week, row) => (
+        <View key={row} style={{ flexDirection: "row", marginLeft: inset, height: rowHeight }}>
+          {week.map((day, index) => {
+            const isActive = day != null && active.has(day);
+            return (
+              <View key={index} style={{ width: cell, height: rowHeight, alignItems: "center", justifyContent: "center" }}>
+                <View style={isActive ? { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: tonePalette[tone].strong, alignItems: "center", justifyContent: "center" } : {}}>
+                  <Text style={{ ...body(isActive ? 800 : 400), fontSize: dense ? 7 : 11, color: isActive ? "#fff" : colors.muted }}>{day ?? ""}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -234,7 +244,8 @@ function AlbumPdfPage({ page, images }: { page: AlbumPage; images: AlbumImages }
       const columns = dense ? 3 : 1;
       const cellWidth = dense ? 160 : 420;
       const gap = dense ? 21 : 0;
-      const rowHeight = dense ? 118 : 330;
+      const cardHeight = calendarHeight(Math.max(...page.months.map((calendar) => calendar.weeks.length)), dense);
+      const rowHeight = cardHeight + (dense ? 10 : 20);
       const rows = Math.ceil(page.months.length / columns);
       const pillsTop = calendarTop + rows * rowHeight + (dense ? 10 : 20);
       return (
@@ -244,7 +255,7 @@ function AlbumPdfPage({ page, images }: { page: AlbumPage; images: AlbumImages }
           {tiles.map(([value, label, tone, sticker], i) => <StatTile key={label} value={value} label={label} tone={tone} sticker={sticker} rect={{ x: CONTENT.x + i * 177, width: 169, y: 112, height: 86 }} />)}
           <Doodles items={doodlesIn(`summary:${page.periodLabel}`, dense ? framingZones(CONTENT.width + 40, calendarTop, calendarTop, pillsTop + 90) : framingZones(cellWidth, calendarTop, calendarTop + 300, pillsTop + 90))} />
           {page.months.map((calendar, i) => (
-            <MiniCalendar key={calendar.label} calendar={calendar} tone={TONES[i % TONES.length]} dense={dense} rect={{ x: dense ? CONTENT.x + (i % columns) * (cellWidth + gap) : CONTENT.x + (CONTENT.width - cellWidth) / 2, y: calendarTop + Math.floor(i / columns) * rowHeight, width: cellWidth, height: rowHeight - 10 }} />
+            <MiniCalendar key={calendar.label} calendar={calendar} tone={TONES[i % TONES.length]} dense={dense} rect={{ x: dense ? CONTENT.x + (i % columns) * (cellWidth + gap) : CONTENT.x + (CONTENT.width - cellWidth) / 2, y: calendarTop + Math.floor(i / columns) * rowHeight, width: cellWidth, height: cardHeight }} />
           ))}
           {page.topActivities.length > 0 && (
             <View style={box({ x: CONTENT.x, y: pillsTop, width: CONTENT.width, height: 80 })}>
