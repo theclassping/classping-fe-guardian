@@ -2,9 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { buildAlbum } from "classping-album/model";
-import { renderAlbumPdf } from "classping-album/pdf/render";
-import type { AlbumActivity, AlbumSource } from "classping-album/types";
+import { buildAlbum } from "@/features/album/core/model";
+import { renderAlbumPdf } from "@/features/album/core/pdf/render";
+import type { AlbumActivity, AlbumSource } from "@/features/album/core/types";
 
 async function jpeg(color: { r: number; g: number; b: number }) {
   return sharp({ create: { width: 640, height: 480, channels: 3, background: color } }).jpeg().toBuffer();

@@ -126,10 +126,9 @@ For staging and production, verify:
 
 Use Vercel's deployment history to promote the previous known-good production deployment immediately. Then revert the faulty commit on `release` through a reviewed pull request and merge the correction back into `dev`. Avoid rewriting branch history during an incident.
 
-## Yearly album builds
+## Album PDFs
 
-`POST /api/album/jobs` renders a year album after its response, with Next's `after()`, and uploads the PDFs
-through the backend's album artifacts API. The route declares `maxDuration = 300`, so the Vercel project must
-allow functions to run for up to five minutes (Fluid compute, or a Pro plan). A build whose worker is cut off
-shows no heartbeat for a few minutes and is restarted by the next status poll. The backend must include the
-`albums` app (branch `feat/album-artifacts` or later) and its migrations.
+`GET /api/album?period=…` renders the child's album for a day, a school week, 30 days or a semester on request
+and returns it inline, so the browser's PDF viewer shows it in a new tab. The route declares `maxDuration = 60`;
+a semester of up to 120 photos renders within that. Bigger semesters are offered in parts by the button. The
+brand fonts are read from `assets/fonts` at the app root, which Next's output tracing bundles.

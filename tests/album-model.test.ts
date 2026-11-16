@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildAlbum, calendarFor, topActivities } from "classping-album/model";
-import { activityPages, entriesFor, layoutFor } from "classping-album/paginate";
-import { monthsBetween, parsePeriodParam, periodParam, periodRange } from "classping-album/period";
-import type { AlbumActivity, AlbumSource } from "classping-album/types";
+import { buildAlbum, calendarFor, topActivities } from "@/features/album/core/model";
+import { activityPages, entriesFor, layoutFor } from "@/features/album/core/paginate";
+import { monthsBetween, parsePeriodParam, periodParam, periodRange } from "@/features/album/core/period";
+import type { AlbumActivity, AlbumSource } from "@/features/album/core/types";
 
 function activity(id: string, date: string, photos: number, extra: Partial<AlbumActivity> = {}): AlbumActivity {
   return { id, title: `Kegiatan ${id}`, date, photos: Array.from({ length: photos }, (_, i) => ({ id: `${id}-${i}`, url: `https://example.test/${id}/${i}.jpg` })), ...extra };
@@ -21,7 +21,7 @@ describe("periods", () => {
     expect(periodRange({ kind: "month", year: 2026, month: 2 })).toEqual({ from: "2026-02-01", to: "2026-02-28" });
     expect(periodParam({ kind: "month", year: 2026, month: 10 })).toBe("2026-10");
     expect(parsePeriodParam("2026-13")).toBeUndefined();
-    expect(parsePeriodParam("year:3", [{ id: "3", label: "2026/2027", start: "2026-07-01", end: "2027-06-30" }])?.kind).toBe("year");
+    expect(parsePeriodParam("year:3")).toBeUndefined();
     expect(monthsBetween("2026-11-01", "2027-02-28").map((m) => m.month)).toEqual([11, 12, 1, 2]);
   });
 });
@@ -72,7 +72,7 @@ describe("buildAlbum", () => {
     expect(doc.photoUrls).toHaveLength(4);
   });
   it("adds a divider only for months that have activities in a year album", () => {
-    const year = { kind: "year" as const, id: "3", label: "2026/2027", start: "2026-07-01", end: "2027-06-30" };
+    const year = { kind: "range" as const, from: "2026-07-01", to: "2027-06-30" };
     const doc = buildAlbum(source([activity("a", "2026-08-03", 2, { remark: "r" }), activity("b", "2026-10-09", 1, { remark: "r" })], year));
     const kinds = doc.pages.map((p) => p.kind);
     expect(kinds).toEqual(["cover", "summary", "monthDivider", "activity", "monthDivider", "activity", "backCover"]);

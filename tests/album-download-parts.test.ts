@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { doodlesIn, entryZones } from "classping-album/doodles";
-import { buildAlbum, downloadPartsFor, downloadPeriodsFor } from "classping-album/model";
-import { parsePeriodParam, periodLabel, periodParam, periodRange } from "classping-album/period";
-import type { AlbumActivity, AlbumSource } from "classping-album/types";
+import { doodlesIn, entryZones } from "@/features/album/core/doodles";
+import { buildAlbum, downloadPartsFor, downloadPeriodsFor } from "@/features/album/core/model";
+import { parsePeriodParam, periodLabel, periodParam, periodRange } from "@/features/album/core/period";
+import type { AlbumActivity, AlbumSource } from "@/features/album/core/types";
 
 function activity(id: string, date: string, photos: number): AlbumActivity {
   return { id, title: `Kegiatan ${id}`, date, photos: Array.from({ length: photos }, (_, i) => ({ id: `${id}-${i}`, url: `mem://${id}/${i}` })) };
 }
-const year = { kind: "year" as const, id: "3", label: "2026/2027", start: "2026-07-01", end: "2027-06-30" };
+const year = { kind: "range" as const, from: "2026-07-01", to: "2027-06-30" };
 const source = (activities: AlbumActivity[], period: AlbumSource["period"]): AlbumSource => ({
   subject: { kind: "child", id: 7, name: "Aisyah Putri", nickname: "Aisyah", initials: "AP", className: "Kelas A" },
   period, school: { name: "TK Ceria" }, activities, generatedAt: "2026-11-13T03:00:00Z",
@@ -54,7 +54,7 @@ describe("downloadPeriodsFor", () => {
     expect(semesters.map((part) => part.photos)).toEqual([100, 100]);
 
     const small = buildAlbum(source([activity("aug", "2026-08-03", 10)], year));
-    expect(downloadPartsFor(small).map((part) => part.label)).toEqual(["Tahun Ajaran 2026/2027"]);
+    expect(downloadPartsFor(small).map((part) => part.label)).toEqual(["Juli 2026–Juni 2027"]);
   });
 });
 
