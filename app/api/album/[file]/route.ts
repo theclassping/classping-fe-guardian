@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { albumSourceFor } from "@/features/album/api";
 import { fetchAlbumImages } from "@/features/album/core/images";
+import { albumLoadingPage } from "@/features/album/core/loading";
 import { MAX_PHOTOS_PER_PDF, buildAlbum } from "@/features/album/core/model";
 import { renderAlbumPdf } from "@/features/album/core/pdf/render";
 import { currentMonth, parsePeriodParam } from "@/features/album/core/period";
@@ -21,6 +22,12 @@ function errorPage(message: string, status: number) {
 export async function GET(request: NextRequest, context: { params: Promise<{ file: string }> }) {
   const { file } = await context.params;
   if (!file.endsWith(".pdf")) return errorPage("Berkas album tidak dikenal.", 404);
+  // A tab navigating here gets a loading page first; it fetches the PDF with `direct=1` and then comes back to it.
+  if (request.headers.get("sec-fetch-dest") === "document" && request.nextUrl.searchParams.get("direct") !== "1") {
+    const pdfUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, "http://x");
+    pdfUrl.searchParams.set("direct", "1");
+    return new NextResponse(albumLoadingPage({ title: "Album Digital", pdfUrl: pdfUrl.pathname + pdfUrl.search }), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  }
   const { child, numericStudentId } = await selectedStudentForRequest();
   if (!numericStudentId) return errorPage("Pilih anak terlebih dahulu.", 400);
   const school = await schoolForBackend(numericStudentId);
@@ -42,8 +49,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ fil
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${album.fileName}"`,
-      // Safari's PDF viewer shows a blank page for a response it may not keep, so the PDF is cacheable for this user only.
-      "Cache-Control": "private, max-age=0",
+      // Cacheable for this user only: the loading page fetches it, then navigates to it and the browser reuses the bytes.
+      // (Safari's PDF viewer also shows a blank page for a response marked no-store.)
+      "Cache-Control": "private, max-age=120",
     },
   });
 }
