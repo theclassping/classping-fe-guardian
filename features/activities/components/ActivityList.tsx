@@ -30,6 +30,8 @@ export default function ActivityList({ items, child }: { items: readonly Activit
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [slides, setSlides] = useState<Record<string, number>>({});
+  // Phones hide the search field behind an icon until it is needed.
+  const [searchOpen, setSearchOpen] = useState(false);
   // The filter, search and how many cards are loaded live in the URL, so the
   // back button from a detail page (or a shared link) restores the same view.
   const state = useMemo(() => parseActivityListState(searchParams), [searchParams]);
@@ -39,6 +41,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
     [items, state, query],
   );
   const visibleItems = filtered.slice(0, shown);
+  const photoCount = filtered.reduce((total, item) => total + item.photos, 0);
   const remaining = filtered.length - visibleItems.length;
 
   function update(changes: Partial<ActivityListState>) {
@@ -83,13 +86,14 @@ export default function ActivityList({ items, child }: { items: readonly Activit
   return (
     <>
       <div className="activity-filters">
-        <label className="list-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
+        <label className={`list-search${searchOpen || query ? " is-open" : ""}`}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Cari aktivitas ${child.firstName}...`} /></label>
         <div className="activity-date-filter" role="group" aria-label="Filter tanggal aktivitas">
           <div className="segmented" role="radiogroup" aria-label="Rentang waktu">
-            {([["all", "Semua"], ["day", "Per hari"], ["week", "Per minggu"], ["range", "30 hari"]] as const).map(([value, label]) => (
-              <button key={value} type="button" role="radio" aria-checked={mode === value} className={mode === value ? "active" : ""} onClick={() => updateMode(value)}>{label}</button>
+            {([["all", "Semua", "Semua"], ["day", "Per hari", "Hari"], ["week", "Per minggu", "Minggu"], ["range", "30 hari", "30 hari"]] as const).map(([value, label, short]) => (
+              <button key={value} type="button" role="radio" aria-checked={mode === value} className={mode === value ? "active" : ""} onClick={() => updateMode(value)}><span className="label-long">{label}</span><span className="label-short">{short}</span></button>
             ))}
           </div>
+          <button type="button" className="search-toggle" aria-label={searchOpen ? "Tutup pencarian" : "Cari aktivitas"} aria-pressed={searchOpen} onClick={() => setSearchOpen((value) => !value)}>{searchOpen ? <X /> : <Search />}</button>
           {mode !== "all" && (
             <div className="date-picker">
               <button type="button" aria-label={`${unit} sebelumnya`} onClick={() => updateDate(shiftDay(date, -step))}><ChevronLeft /></button>
@@ -99,15 +103,14 @@ export default function ActivityList({ items, child }: { items: readonly Activit
             </div>
           )}
         </div>
-        {mode !== "all" && (
-          <p className="activity-filter-summary" role="status">
-            <strong>{selectionLabel}</strong>
-            {mode === "week" && <span> · Senin sampai Jumat</span>}
-            {mode === "range" && <span> · {RANGE_DAYS} hari</span>}
-            <span> · {filtered.length} aktivitas</span>
-            <button type="button" onClick={() => updateMode("all")}><X aria-hidden="true" /> Tampilkan semua</button>
-          </p>
-        )}
+        <p className="activity-filter-summary" role="status">
+          {mode !== "all" && <strong className="summary-selection">{selectionLabel}</strong>}
+          {mode === "week" && <span className="summary-hint"> · Senin sampai Jumat</span>}
+          {mode === "range" && <span className="summary-hint"> · {RANGE_DAYS} hari</span>}
+          <span className="summary-count">{mode !== "all" && <span className="summary-hint"> · </span>}{filtered.length} aktivitas · {photoCount} foto</span>
+          {mode !== "all" && <button type="button" className="summary-reset" onClick={() => updateDate(mode === "range" ? lastThirtyDaysStart() : todayKey())}>{mode === "range" ? "30 hari terakhir" : "Hari ini"}</button>}
+          {mode !== "all" && <button type="button" onClick={() => updateMode("all")}><X aria-hidden="true" /> Tampilkan semua</button>}
+        </p>
       </div>
       <div className="guardian-social-feed">
         {visibleItems.map((activity) => {
@@ -123,12 +126,13 @@ export default function ActivityList({ items, child }: { items: readonly Activit
                 {images.length > 1 && <><button type="button" aria-label="Foto sebelumnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide - 1 + images.length) % images.length }))}><ChevronLeft /></button><button type="button" aria-label="Foto berikutnya" onClick={() => setSlides((current) => ({ ...current, [activity.slug]: (slide + 1) % images.length }))}><ChevronRight /></button><span className="post-counter">{slide + 1}/{images.length}</span><div className="post-dots">{images.map((_, index) => <i key={index} className={slide === index ? "active" : ""} />)}</div></>}
               </div>
               <div className="post-content">
-                <div className="post-action-row">
+                <h3 className="post-title">{activity.title}</h3>
+                <p className="post-text">{activity.description}</p>
+                <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
+                <div className="post-footer">
+                  <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}`}>Baca catatan lengkap</Link>
                   <button type="button" aria-label={`Unduh foto ${activity.title}`} onClick={() => downloadActivity(activity, currentImage)}><Download /></button>
                 </div>
-                <p><b>{activity.title}</b> {activity.description}</p>
-                <div className="tag-list">{activity.skills.map((skill) => <span key={skill}>{skill}</span>)}</div>
-                <Link className="post-detail-link" href={`/dashboard/activities/${activity.slug}`}>Baca catatan lengkap</Link>
               </div>
             </article>
           );

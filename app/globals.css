@@ -536,7 +536,7 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 /* Private activity feed */
 .guardian-social-feed { width: min(860px, 100%); display: flex; flex-direction: column; gap: 24px; align-self: center; }.social-post { overflow: hidden; }.social-post > header { display: grid; grid-template-columns: 45px 1fr auto; gap: 11px; align-items: center; padding: 16px 20px; }.post-avatar { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 50%; color: #8A5300; background: #FDF1D8; font-weight: 900; }.social-post header strong, .social-post header small { display: block; }.social-post header small { margin-top: 3px; color: var(--muted); font-size: 10px; }.social-post header > b { color: var(--green); font-size: 10px; }
 .post-carousel { position: relative; min-height: 520px; display: grid; place-items: center; overflow: hidden; }.post-carousel::after { content: ""; position: absolute; width: 360px; height: 360px; right: -100px; top: -110px; border: 48px solid rgba(255,255,255,.22); border-radius: 50%; }.post-carousel.peach, .activity-art.peach { background: linear-gradient(135deg,#F6B94A,#F2A07E); }.post-carousel.mint, .activity-art.mint { background: linear-gradient(135deg,#1FA78A,#1FA78A); }.post-carousel.lavender, .activity-art.lavender { background: linear-gradient(135deg,#EEF4F7,#A9C9D9); }.post-carousel.blue, .activity-art.blue, .detail-art.blue { background: linear-gradient(135deg,#EEF4F7,#A9C9D9); }.post-scene { position: relative; z-index: 1; font-size: 110px; }.post-carousel > button { position: absolute; z-index: 3; top: 50%; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; color: #fff; background: rgba(58,47,39,.6); cursor: pointer; }.post-carousel > button:first-of-type { left: 15px; }.post-carousel > button:nth-of-type(2) { right: 15px; }.post-counter { position: absolute; z-index: 3; top: 15px; right: 15px; padding: 6px 9px; border-radius: 999px; color: #fff; background: rgba(58,47,39,.72); font-size: 9px; font-weight: 800; }.post-dots { position: absolute; z-index: 3; bottom: 14px; display: flex; gap: 6px; }.post-dots i { width: 7px; height: 7px; border-radius: 99px; background: rgba(255,255,255,.6); }.post-dots i.active { width: 20px; background: #fff; }
-.post-content { padding: 17px 20px 21px; }.post-action-row { display: flex; justify-content: flex-end; margin-bottom: 10px; }.post-action-row button { width: 42px; height: 42px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--ink); background: transparent; cursor: pointer; }.post-action-row button:last-child { margin-left: auto; }.post-action-row button:hover { background: #E3F1EE; }.post-action-row button.liked { color: #F2A07E; background: #FCE6E0; }.post-action-row button.liked svg { fill: currentColor; }.post-likes { display: block; margin: 5px 0 10px; font-size: 11px; }.post-content > p { margin: 0 0 12px; color: #6E5F53; font-size: 12px; line-height: 1.6; }.post-content > p b { color: var(--ink); }.post-detail-link { display: inline-block; margin-top: 13px; color: var(--green); font-size: 10px; font-weight: 800; text-decoration: none; }
+.post-content { padding: 17px 20px 21px; }.post-title { margin: 0 0 6px; font: 800 15px var(--font-plus-jakarta), sans-serif; }.post-text { margin: 0 0 12px; color: #6E5F53; font-size: 12px; line-height: 1.6; }.post-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }.post-footer button { width: 42px; height: 42px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--ink); background: transparent; cursor: pointer; }.post-footer button:hover { background: #E3F1EE; }.post-detail-link { display: inline-block; color: var(--green); font-size: 10px; font-weight: 800; text-decoration: none; }
 
 /* Guardian account profile */
 .profile-page { display: flex; flex-direction: column; gap: 20px; }.profile-hero { display: flex; align-items: center; gap: 20px; padding: 28px; background: linear-gradient(120deg,#E3F1EE,#fff); }.profile-hero > span { width: 82px; height: 82px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 24px; color: #8A5300; background: #FDF1D8; font-size: 25px; font-weight: 900; }.profile-hero h1 { margin: 5px 0; font: 800 30px var(--font-plus-jakarta), sans-serif; }.profile-hero p:last-child { margin: 0; color: var(--muted); }.profile-hero > a { margin-left: auto; }.profile-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 20px; }.profile-card { padding: 26px; }.profile-card h2 { margin: 0 0 20px; font: 800 20px var(--font-plus-jakarta), sans-serif; }.profile-card dl { margin: 0; }.profile-card dl > div { padding: 14px 0; border-bottom: 1px solid var(--line); }.profile-card dt { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }.profile-card dt svg { width: 14px; }.profile-card dd { margin: 5px 0 0; font-size: 13px; font-weight: 800; }.linked-children { display: grid; gap: 12px; }.linked-children > a { display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 13px; min-height: 82px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; color: inherit; text-decoration: none; }.linked-children > a:hover { border-color: #1FA78A; }.linked-children > a > span { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 15px; color: var(--green); background: var(--mint); font-weight: 900; }.linked-children > a > span.jisindo { color: var(--blue); background: #EEF4F7; }.linked-children strong, .linked-children small { display: block; }.linked-children small { margin-top: 4px; color: var(--muted); font-size: 10px; }.linked-children b { display: flex; align-items: center; gap: 5px; color: var(--green); font-size: 10px; }.linked-children b svg { width: 14px; }
@@ -956,12 +956,67 @@ svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .album-button { white-space: nowrap; flex-wrap: wrap; row-gap: 0; }
 .album-button small { flex-basis: 100%; text-align: center; font-size: 10px; font-weight: 600; color: var(--muted); }
 .album-chooser { position: relative; }
-.album-chooser-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; display: grid; gap: 12px; width: min(320px, calc(100vw - 32px)); padding: 16px; }
-.album-chooser-panel label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
-.album-chooser-panel select { min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
-.album-chooser-panel fieldset { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
-.album-chooser-panel legend { margin-bottom: 6px; font-size: 12px; font-weight: 700; }
-.album-chooser-panel fieldset label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.album-chooser-panel .primary-button, .album-chooser-panel .outline-button { min-height: 42px; }
+.album-chooser-backdrop { display: none; }
+.album-chooser-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; display: grid; gap: 12px; width: min(340px, calc(100vw - 32px)); padding: 16px; }
+.album-chooser-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.album-chooser-head strong { font: 800 14px var(--font-plus-jakarta), sans-serif; }
+.album-chooser-head select { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font: 700 12px var(--font-dm-sans), sans-serif; }
+.album-semesters { display: grid; gap: 8px; }
+.album-semesters button { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); font: 700 13px var(--font-dm-sans), sans-serif; text-align: left; cursor: pointer; }
+.album-semesters button small { color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.album-semesters button.active { border-color: var(--green); background: #E3F1EE; color: var(--green-dark); }
+.album-semesters button.active small { color: var(--green); }
+.album-chooser-panel .primary-button, .album-chooser-panel .outline-button { min-height: 44px; }
 .album-chooser-note { margin: 0; font-size: 11px; color: var(--muted); }
-@media (max-width: 640px) { .album-chooser-panel { right: auto; left: 0; } }
+
+/* Activity report on phones: compact header, one sticky filter card, tidier cards, album as a bottom bar */
+.name-short { display: none; }
+.label-short { display: none; }
+.search-toggle { display: none; }
+.activity-filter-summary .summary-reset { display: none; }
+@media (max-width: 680px) {
+  .activities-header > div > p:last-child { display: none; }
+  .activities-header h1 { font-size: 24px; letter-spacing: -.6px; }
+  .activities-header .name-full { display: none; }
+  .activities-header .name-short { display: inline; }
+  .activities-header { gap: 0; margin-bottom: -4px; }
+  .activity-filters { position: sticky; top: 74px; z-index: 25; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.96); backdrop-filter: blur(10px); }
+  .activity-filters .list-search { display: none; }
+  .activity-filters .list-search.is-open { display: flex; order: 2; }
+  .activity-date-filter { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .activity-date-filter .segmented { flex: 1; width: auto; padding: 3px; }
+  .segmented button { flex: 1; padding: 8px 4px; font-size: 12px; }
+  .label-long { display: none; }
+  .label-short { display: inline; }
+  .search-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--green); cursor: pointer; }
+  .search-toggle svg { width: 18px; }
+  .search-toggle[aria-pressed="true"] { background: #E3F1EE; }
+  .activity-date-filter .date-picker { flex-basis: 100%; display: flex; gap: 6px; }
+  .date-picker-field { flex: 1; min-width: 0; }
+  .date-picker-trigger { width: 100%; justify-content: center; padding: 0 8px; font-size: 12px; }
+  .date-picker-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .date-picker > .date-reset { display: none; }
+  .activity-filter-summary { font-size: 12px; order: 3; }
+  .activity-filter-summary .summary-selection, .activity-filter-summary .summary-hint { display: none; }
+  .activity-filter-summary .summary-reset { display: inline-flex; margin-left: auto; }
+  .activity-filter-summary button { margin-left: 0; }
+  .social-post > header { grid-template-columns: 34px 1fr; gap: 10px; padding: 12px 14px; }
+  .post-avatar { width: 34px; height: 34px; font-size: 12px; }
+  .social-post header strong { font-size: 13px; }
+  .social-post header small, .social-post header > b { font-size: 10px; }
+  .social-post header > b { grid-column: 2; }
+  .post-carousel { min-height: 240px; }
+  .post-image { min-height: 240px; max-height: 300px; }
+  .post-carousel > button { width: 34px; height: 34px; }
+  .post-carousel > button:first-of-type { left: 8px; }
+  .post-carousel > button:nth-of-type(2) { right: 8px; }
+  .post-content { padding: 12px 14px 14px; }
+  .post-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .post-footer button { width: 38px; height: 38px; }
+  .guardian-social-feed { gap: 14px; }
+  .content-page:has(.album-button) { padding-bottom: 72px; }
+  .activities-header .album-button, .activities-header .album-chooser > .album-button { position: fixed; left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 28; min-height: 50px; box-shadow: 0 10px 30px rgba(58,47,39,.18); }
+  .activities-header .album-chooser-backdrop { display: block; position: fixed; inset: 0; z-index: 29; border: 0; background: rgba(58,47,39,.45); }
+  .activities-header .album-chooser-panel { position: fixed; left: 0; right: 0; top: auto; bottom: 0; z-index: 30; width: auto; padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; box-shadow: 0 -20px 60px rgba(58,47,39,.25); }
+  .activities-header .album-chooser-panel::before { content: ""; display: block; width: 36px; height: 4px; margin: 0 auto 4px; border-radius: 2px; background: #E5DED3; }
+}
