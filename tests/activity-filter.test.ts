@@ -11,7 +11,11 @@ import {
   filterActivitiesByDate,
   formatDayKey,
   formatSchoolWeek,
+  formatSelection,
+  formatThirtyDays,
   isDayKey,
+  lastThirtyDaysStart,
+  thirtyDaysFrom,
   schoolWeekOf,
   shiftDay,
 } from "@/features/activities/filter";
@@ -106,5 +110,25 @@ describe("calendar month grid", () => {
     expect(dayOfMonth("2026-10-05")).toBe(5);
     expect(isWeekend("2026-10-17")).toBe(true); // Saturday
     expect(isWeekend("2026-10-20")).toBe(false);
+  });
+});
+
+describe("30-day range", () => {
+  it("covers 30 days from any day, across month and year ends", () => {
+    expect(thirtyDaysFrom("2026-11-15")).toEqual({ start: "2026-11-15", end: "2026-12-14" });
+    expect(thirtyDaysFrom("2026-12-20")).toEqual({ start: "2026-12-20", end: "2027-01-18" });
+    expect(lastThirtyDaysStart("2026-11-16")).toBe("2026-10-18");
+    expect(thirtyDaysFrom(lastThirtyDaysStart("2026-11-16")).end).toBe("2026-11-16");
+  });
+
+  it("formats the range label in Indonesian", () => {
+    expect(formatThirtyDays("2026-11-15")).toBe("15 Nov 2026 – 14 Des 2026");
+    expect(formatSelection("range", "2026-11-15")).toBe("15 Nov 2026 – 14 Des 2026");
+    expect(formatSelection("day", "2026-10-29")).toBe("Kamis, 29 Oktober 2026");
+  });
+
+  it("keeps only activities inside the 30 days", () => {
+    const items = [at("2026-11-14T03:00:00Z", "sebelum"), at("2026-11-15T03:00:00Z", "awal"), at("2026-12-14T03:00:00Z", "akhir"), at("2026-12-15T03:00:00Z", "sesudah")];
+    expect(filterActivitiesByDate(items, { mode: "range", date: "2026-11-15" }).map((item) => item.title)).toEqual(["awal", "akhir"]);
   });
 });

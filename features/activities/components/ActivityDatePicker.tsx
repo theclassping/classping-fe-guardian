@@ -5,28 +5,31 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   calendarWeeks,
   dayOfMonth,
+  dayRangeOf,
   formatDayKey,
   formatMonth,
-  formatSchoolWeek,
+  formatSelection,
   isWeekend,
   monthKeyOf,
-  schoolWeekOf,
   shiftMonth,
   todayKey,
+  type DatedMode,
   type DayKey,
+  type DayRange,
 } from "@/features/activities/filter";
 
 const WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
 type Props = {
-  mode: "day" | "week";
+  mode: DatedMode;
   value: DayKey;
   onChange: (value: DayKey) => void;
 };
 
 /**
  * A calendar popover. In week mode, clicking (or hovering) any day marks the
- * whole Monday-to-Friday block that contains it; in day mode it marks that day.
+ * whole Monday-to-Friday block that contains it; in range mode it marks the
+ * 30 days starting there; in day mode it marks that day.
  */
 export default function ActivityDatePicker({ mode, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
@@ -60,11 +63,17 @@ export default function ActivityDatePicker({ mode, value, onChange }: Props) {
     setOpen(false);
   }
 
-  const rangeOf = (day: DayKey) => (mode === "week" ? schoolWeekOf(day) : { start: day, end: day });
+  const rangeOf = (day: DayKey) => dayRangeOf(mode, day);
   const selected = rangeOf(value);
   const preview = hovered && hovered !== value ? rangeOf(hovered) : null;
-  const inRange = (day: DayKey, range: { start: DayKey; end: DayKey }) => day >= range.start && day <= range.end;
-  const label = mode === "week" ? formatSchoolWeek(value) : formatDayKey(value);
+  const inRange = (day: DayKey, range: DayRange) => day >= range.start && day <= range.end;
+  const label = formatSelection(mode, value);
+  const dialogLabel = mode === "week" ? "Pilih minggu" : mode === "range" ? "Pilih tanggal mulai" : "Pilih tanggal";
+  const hint = mode === "week"
+    ? "Klik tanggal mana pun untuk memilih minggu Senin sampai Jumat."
+    : mode === "range"
+      ? "Klik tanggal mulai; 30 hari sejak tanggal itu ikut terpilih."
+      : "Klik tanggal untuk melihat aktivitas hari itu.";
 
   return (
     <div className="date-picker-field" ref={root}>
@@ -73,13 +82,13 @@ export default function ActivityDatePicker({ mode, value, onChange }: Props) {
         <span>{label}</span>
       </button>
       {open && (
-        <div className="date-popover" id={id} role="dialog" aria-label={mode === "week" ? "Pilih minggu" : "Pilih tanggal"}>
+        <div className="date-popover" id={id} role="dialog" aria-label={dialogLabel}>
           <div className="date-popover-head">
             <button type="button" aria-label="Bulan sebelumnya" onClick={() => setMonth((current) => shiftMonth(current, -1))}><ChevronLeft /></button>
             <strong aria-live="polite">{formatMonth(month)}</strong>
             <button type="button" aria-label="Bulan berikutnya" onClick={() => setMonth((current) => shiftMonth(current, 1))}><ChevronRight /></button>
           </div>
-          <p className="date-popover-hint">{mode === "week" ? "Klik tanggal mana pun untuk memilih minggu Senin sampai Jumat." : "Klik tanggal untuk melihat aktivitas hari itu."}</p>
+          <p className="date-popover-hint">{hint}</p>
           <table className="calendar" onMouseLeave={() => setHovered(null)}>
             <thead><tr>{WEEKDAYS.map((name) => <th key={name} scope="col" abbr={name}>{name}</th>)}</tr></thead>
             <tbody>
