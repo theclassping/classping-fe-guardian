@@ -18,7 +18,7 @@ export function parseActivityListState(params: ParamsLike, today: DayKey = today
   const date = params.get("date");
   const shown = Number(params.get("shown"));
   return {
-    mode: mode === "day" || mode === "week" ? mode : "all",
+    mode: mode === "day" || mode === "week" || mode === "range" ? mode : "all",
     date: isDayKey(date) ? date : today,
     shown: Number.isInteger(shown) && shown > ACTIVITY_PAGE_SIZE ? shown : ACTIVITY_PAGE_SIZE,
     query: params.get("q")?.trim() ?? "",

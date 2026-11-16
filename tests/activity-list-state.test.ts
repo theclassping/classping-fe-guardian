@@ -13,6 +13,11 @@ describe("activity list state in the URL", () => {
     expect(parseActivityListState(params, today)).toEqual({ mode: "week", date: "2026-10-26", shown: 18, query: "balok" });
   });
 
+  it("restores a 30-day range from its start date", () => {
+    expect(parseActivityListState(new URLSearchParams("mode=range&date=2026-10-15"), today)).toMatchObject({ mode: "range", date: "2026-10-15" });
+    expect(dateFilterOf({ mode: "range", date: "2026-10-15" })).toEqual({ mode: "range", date: "2026-10-15" });
+  });
+
   it("ignores malformed values", () => {
     const params = new URLSearchParams("mode=month&date=26-10-2026&shown=abc");
     expect(parseActivityListState(params, today)).toEqual({ mode: "all", date: today, shown: ACTIVITY_PAGE_SIZE, query: "" });

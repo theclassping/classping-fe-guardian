@@ -6,7 +6,14 @@ export type DayKey = string;
 export type ActivityDateFilter =
   | { mode: "all" }
   | { mode: "day"; date: DayKey }
-  | { mode: "week"; date: DayKey };
+  | { mode: "week"; date: DayKey }
+  | { mode: "range"; date: DayKey };
+
+export type DatedMode = Exclude<ActivityDateFilter["mode"], "all">;
+export type DayRange = { start: DayKey; end: DayKey };
+
+/** Length of the "30 hari" window, counting its first day. */
+export const RANGE_DAYS = 30;
 
 const INDONESIAN_MONTHS: Record<string, number> = {
   januari: 1, februari: 2, maret: 3, april: 4, mei: 5, juni: 6,
@@ -66,16 +73,33 @@ export function shiftDay(key: DayKey, days: number): DayKey {
 }
 
 /** The school week (Monday to Friday) that contains the given day. */
-export function schoolWeekOf(key: DayKey): { start: DayKey; end: DayKey } {
+export function schoolWeekOf(key: DayKey): DayRange {
   const weekday = new Date(toUtc(key)).getUTCDay(); // 0 = Sunday
   const offsetToMonday = (weekday + 6) % 7;
   const start = shiftDay(key, -offsetToMonday);
   return { start, end: shiftDay(start, 4) };
 }
 
+/** The 30 days that start on the given day, which can be any day of a month. */
+export function thirtyDaysFrom(key: DayKey): DayRange {
+  return { start: key, end: shiftDay(key, RANGE_DAYS - 1) };
+}
+
+/** The 30 days that end today, the default window when the 30-day view is opened. */
+export function lastThirtyDaysStart(today: DayKey = todayKey()): DayKey {
+  return shiftDay(today, 1 - RANGE_DAYS);
+}
+
+/** The days a selection covers: the day itself, its school week, or the 30 days from it. */
+export function dayRangeOf(mode: DatedMode, date: DayKey): DayRange {
+  if (mode === "week") return schoolWeekOf(date);
+  if (mode === "range") return thirtyDaysFrom(date);
+  return { start: date, end: date };
+}
+
 export function filterActivitiesByDate<T extends Pick<Activity, "date" | "occurredAt">>(items: readonly T[], filter: ActivityDateFilter, timeZone = "Asia/Jakarta"): T[] {
   if (filter.mode === "all") return [...items];
-  const range = filter.mode === "day" ? { start: filter.date, end: filter.date } : schoolWeekOf(filter.date);
+  const range = dayRangeOf(filter.mode, filter.date);
   return items.filter((item) => {
     const key = activityDayKey(item, timeZone);
     return key !== undefined && key >= range.start && key <= range.end;
@@ -93,6 +117,19 @@ export function formatDayKey(key: DayKey) {
 export function formatSchoolWeek(key: DayKey) {
   const { start, end } = schoolWeekOf(key);
   return `${shortFormatter.format(new Date(toUtc(start)))} – ${shortFormatter.format(new Date(toUtc(end)))} ${end.slice(0, 4)}`;
+}
+
+const rangeFormatter = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** "15 Nov 2026 – 14 Des 2026" for the 30 days starting on the day. */
+export function formatThirtyDays(key: DayKey) {
+  const { start, end } = thirtyDaysFrom(key);
+  return `${rangeFormatter.format(new Date(toUtc(start)))} – ${rangeFormatter.format(new Date(toUtc(end)))}`;
+}
+
+/** The label of a selection in any dated mode. */
+export function formatSelection(mode: DatedMode, date: DayKey) {
+  return mode === "week" ? formatSchoolWeek(date) : mode === "range" ? formatThirtyDays(date) : formatDayKey(date);
 }
 
 /** "YYYY-MM" of a day. */

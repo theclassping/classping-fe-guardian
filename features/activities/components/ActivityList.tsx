@@ -10,9 +10,10 @@ import type { Activity } from "@/features/activities/types";
 import type { ChildProfile } from "@/features/family/types";
 import {
   filterActivitiesByDate,
-  formatDayKey,
-  formatSchoolWeek,
+  formatSelection,
   isDayKey,
+  lastThirtyDaysStart,
+  RANGE_DAYS,
   shiftDay,
   todayKey,
 } from "@/features/activities/filter";
@@ -46,11 +47,15 @@ export default function ActivityList({ items, child }: { items: readonly Activit
     router.replace(`${pathname}?${applyActivityListState(new URLSearchParams(searchParams), next).toString()}`, { scroll: false });
   }
   const setQuery = (value: string) => update({ query: value });
-  const updateMode = (value: ActivityListState["mode"]) => update({ mode: value });
+  // The 30-day view opens on the 30 days ending today; leaving it returns to today.
+  const updateMode = (value: ActivityListState["mode"]) => update(
+    value === "range" ? { mode: value, date: lastThirtyDaysStart() } : mode === "range" ? { mode: value, date: todayKey() } : { mode: value },
+  );
   const updateDate = (value: string) => { if (isDayKey(value)) update({ date: value }); };
   const loadMore = () => update({ shown: shown + ACTIVITY_PAGE_SIZE });
-  const step = mode === "week" ? 7 : 1;
-  const selectionLabel = mode === "day" ? formatDayKey(date) : mode === "week" ? formatSchoolWeek(date) : "";
+  const step = mode === "week" ? 7 : mode === "range" ? RANGE_DAYS : 1;
+  const unit = mode === "week" ? "Minggu" : mode === "range" ? "30 hari" : "Hari";
+  const selectionLabel = mode === "all" ? "" : formatSelection(mode, date);
   const emptyCopy = mode === "all" ? "Coba gunakan kata kunci yang berbeda." : query ? `Tidak ada aktivitas yang cocok pada ${selectionLabel}.` : `Belum ada aktivitas yang dibagikan pada ${selectionLabel}.`;
 
   function downloadActivity(activity: Activity, activeImage?: string) {
@@ -81,16 +86,16 @@ export default function ActivityList({ items, child }: { items: readonly Activit
         <label className="list-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Cari aktivitas ${child.name}...`} /></label>
         <div className="activity-date-filter" role="group" aria-label="Filter tanggal aktivitas">
           <div className="segmented" role="radiogroup" aria-label="Rentang waktu">
-            {([["all", "Semua"], ["day", "Per hari"], ["week", "Per minggu"]] as const).map(([value, label]) => (
+            {([["all", "Semua"], ["day", "Per hari"], ["week", "Per minggu"], ["range", "30 hari"]] as const).map(([value, label]) => (
               <button key={value} type="button" role="radio" aria-checked={mode === value} className={mode === value ? "active" : ""} onClick={() => updateMode(value)}>{label}</button>
             ))}
           </div>
           {mode !== "all" && (
             <div className="date-picker">
-              <button type="button" aria-label={mode === "week" ? "Minggu sebelumnya" : "Hari sebelumnya"} onClick={() => updateDate(shiftDay(date, -step))}><ChevronLeft /></button>
+              <button type="button" aria-label={`${unit} sebelumnya`} onClick={() => updateDate(shiftDay(date, -step))}><ChevronLeft /></button>
               <ActivityDatePicker mode={mode} value={date} onChange={updateDate} />
-              <button type="button" aria-label={mode === "week" ? "Minggu berikutnya" : "Hari berikutnya"} onClick={() => updateDate(shiftDay(date, step))}><ChevronRight /></button>
-              <button type="button" className="date-reset" onClick={() => updateDate(todayKey())}>Hari ini</button>
+              <button type="button" aria-label={`${unit} berikutnya`} onClick={() => updateDate(shiftDay(date, step))}><ChevronRight /></button>
+              <button type="button" className="date-reset" onClick={() => updateDate(mode === "range" ? lastThirtyDaysStart() : todayKey())}>{mode === "range" ? "30 hari terakhir" : "Hari ini"}</button>
             </div>
           )}
         </div>
@@ -98,6 +103,7 @@ export default function ActivityList({ items, child }: { items: readonly Activit
           <p className="activity-filter-summary" role="status">
             <strong>{selectionLabel}</strong>
             {mode === "week" && <span> · Senin sampai Jumat</span>}
+            {mode === "range" && <span> · {RANGE_DAYS} hari</span>}
             <span> · {filtered.length} aktivitas</span>
             <button type="button" onClick={() => updateMode("all")}><X aria-hidden="true" /> Tampilkan semua</button>
           </p>
