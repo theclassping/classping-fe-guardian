@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   },
   description:
     "Portal wali murid untuk mengikuti aktivitas, perkembangan, dan administrasi sekolah anak.",
+  // Label under the icon when the portal is added to an iPhone home screen.
+  appleWebApp: { capable: false, title: "ClassPing" },
 };
 
 export default function RootLayout({
