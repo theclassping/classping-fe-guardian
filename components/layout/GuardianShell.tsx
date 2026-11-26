@@ -24,6 +24,7 @@ import type { GuardianIdentity } from "@/lib/auth";
 import type { GuardianNotification } from "@/features/notifications/api";
 import { UNKNOWN_CHILD, type ChildProfile, type GuardianSchool } from "@/features/family/types";
 import { initialsOf } from "@/lib/format";
+import { pollWhileVisible } from "@/lib/pollWhileVisible";
 import { useStoredIds } from "@/features/notifications/useStoredIds";
 
 type NavItem = { href: string; label: string; icon: typeof Settings; badge?: string; exact?: boolean };
@@ -60,7 +61,7 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  // Server-rendered notifications, replaced by the 30-second refresh until the server sends a new list.
+  // Server-rendered notifications, replaced by the periodic refresh until the server sends a new list.
   const [fetchedNotifications, setFetchedNotifications] = useState<{ source: GuardianNotification[]; items: GuardianNotification[] } | null>(null);
   const notifications = fetchedNotifications?.source === initialNotifications ? fetchedNotifications.items : initialNotifications;
   const [contactOpen, setContactOpen] = useState(false);
@@ -81,9 +82,10 @@ export default function GuardianShell({ identity, currentStudentId, currentChild
         if (active && Array.isArray(latest)) setFetchedNotifications({ source: initialNotifications, items: latest });
       } catch { /* Keep the last notifications when the service is temporarily unavailable. */ }
     }
-    void refreshNotifications();
-    const interval = window.setInterval(() => void refreshNotifications(), 30_000);
-    return () => { active = false; window.clearInterval(interval); };
+    // The page arrives with a fresh server-rendered list, so the first call waits one interval.
+    // Every call runs a Vercel function: poll slowly, and not at all while the tab is hidden.
+    const stopPolling = pollWhileVisible(() => void refreshNotifications(), { visibleMs: 120_000 });
+    return () => { active = false; stopPolling(); };
   }, [studentId, initialNotifications]);
 
   function formatNotificationDate(value?: string) {
